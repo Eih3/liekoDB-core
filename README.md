@@ -39,6 +39,10 @@ This documentation provides examples of how to use the `liekoDB` client library 
   - [Get Connection Info](#get-connection-info)
 - [Examples App](#examples-app)
 
+## Online Documentation
+[LiekoDB Documentation](http://gnode01.pyts-cloud.fr:9700/doc.html)
+
+
 ## Installation
 
 Install the `liekoDB` client library in a Node.js environment:
@@ -700,6 +704,15 @@ createUser();
  * Collection Creation: The db.set() method automatically calls ensureCollection('users'), so the 'users' collection is created if it doesn't exist.
  */
 ```
+
+
+[LiekoDB Demo (html)](http://gnode01.pyts-cloud.fr:9700/examples/liekoDB_demo.html)
+
+[LiekoDB Tester (html)](http://gnode01.pyts-cloud.fr:9700/examples/liekoDB_tester.html)
+
+[LiekoDB Users App (html)](http://gnode01.pyts-cloud.fr:9700/examples/users-app.html)
+
+[LiekoDB Users Dashboard (html)](http://gnode01.pyts-cloud.fr:9700/examples/users-dashboard.html)
 
 ## Notes
 

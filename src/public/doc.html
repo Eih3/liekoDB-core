@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LiekoDB Documentation</title>
 
-        <style>
+    <style>
         :root {
             --primary: #3498db;
             --secondary: #2c3e50;
@@ -232,13 +232,14 @@
     </style>
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/line-numbers/prism-line-numbers.min.css"
+        rel="stylesheet" />
     <style>
         /* Custom styling for code blocks */
         pre[class*="language-"] {
-    color: #f8f8f2;
+            color: #f8f8f2;
         }
-        
+
         code[class*="language-"] {
             font-family: 'Fira Code', 'Consolas', monospace;
             font-size: 0.9em;
@@ -281,12 +282,12 @@
 
                     <div class="method">
                         <h3>Node.js</h3>
-                        <pre><code class="language-javascript">npm install lieko-db</code></pre>
+                        <pre><code class="language-javascript">npm install liekodb</code></pre>
                     </div>
 
                     <div class="method">
                         <h3>Browser</h3>
-                        <pre><code class="language-javascript">&lt;script src="liekoDB-1.1.js"&gt;&lt;/script&gt;</code></pre>
+                        <pre><code class="language-javascript">&lt;script src="http://&lt;lieko-db-server&gt;/lieko-db-server>liekoDB.js"&gt;&lt;/script&gt;</code></pre>
                     </div>
                 </section>
 
@@ -547,28 +548,29 @@ console.log(`Users collection has ${size} records`);</code></pre>
                 </section>
 
                 <section id="query-methods">
-        <h2>Query Methods</h2>
+                    <h2>Query Methods</h2>
 
-        <div class="method">
-            <h3>Searching Records</h3>
-            <div class="method-signature">
-                db.search(collection: String, term: String, fields: Array, options: Object?)
-            </div>
-            <p>Searches records for the specified term in the given fields with powerful search capabilities.</p>
+                    <div class="method">
+                        <h3>Searching Records</h3>
+                        <div class="method-signature">
+                            db.search(collection: String, term: String, fields: Array, options: Object?)
+                        </div>
+                        <p>Searches records for the specified term in the given fields with powerful search
+                            capabilities.</p>
 
-            <div class="example">
-                <h4 class="example-title">Example 1: Basic Text Search</h4>
-                <pre><code class="language-javascript">// Search users by name or email
+                        <div class="example">
+                            <h4 class="example-title">Example 1: Basic Text Search</h4>
+                            <pre><code class="language-javascript">// Search users by name or email
 const results = await db.search('users', 'john', [
   'firstName',
   'lastName',
   'email'
 ]);</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 2: Search with Pagination</h4>
-                <pre><code class="language-javascript">// Search products with pagination (page 2, 10 items per page)
+                        <div class="example">
+                            <h4 class="example-title">Example 2: Search with Pagination</h4>
+                            <pre><code class="language-javascript">// Search products with pagination (page 2, 10 items per page)
 const pageResults = await db.search('products', 'laptop', [
   'name',
   'description',
@@ -577,11 +579,11 @@ const pageResults = await db.search('products', 'laptop', [
   limit: 10,
   offset: 10
 });</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 3: Search with Sorting</h4>
-                <pre><code class="language-javascript">// Search orders by customer name, sorted by date
+                        <div class="example">
+                            <h4 class="example-title">Example 3: Search with Sorting</h4>
+                            <pre><code class="language-javascript">// Search orders by customer name, sorted by date
 const sortedResults = await db.search('orders', 'Smith', [
   'customerName',
   'customerEmail'
@@ -589,11 +591,11 @@ const sortedResults = await db.search('orders', 'Smith', [
   sort: 'orderDate:desc',
   limit: 5
 });</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 4: Search with Multiple Terms</h4>
-                <pre><code class="language-javascript">// Search for documents containing both "wireless" and "keyboard"
+                        <div class="example">
+                            <h4 class="example-title">Example 4: Search with Multiple Terms</h4>
+                            <pre><code class="language-javascript">// Search for documents containing both "wireless" and "keyboard"
 const multiTermResults = await db.search('products', 'wireless keyboard', [
   'name',
   'description',
@@ -601,39 +603,39 @@ const multiTermResults = await db.search('products', 'wireless keyboard', [
 ], {
   operator: 'AND' // Default is 'OR'
 });</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 5: Search with Field Boosting</h4>
-                <pre><code class="language-javascript">// Make matches in title more important than description
+                        <div class="example">
+                            <h4 class="example-title">Example 5: Search with Field Boosting</h4>
+                            <pre><code class="language-javascript">// Make matches in title more important than description
 const boostedResults = await db.search('articles', 'database', [
   { field: 'title', boost: 2 },
   { field: 'description', boost: 1 },
   'tags'
 ]);</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 6: Search with Exact Phrase</h4>
-                <pre><code class="language-javascript">// Search for exact phrase "wireless mouse"
+                        <div class="example">
+                            <h4 class="example-title">Example 6: Search with Exact Phrase</h4>
+                            <pre><code class="language-javascript">// Search for exact phrase "wireless mouse"
 const exactPhraseResults = await db.search('products', '"wireless mouse"', [
   'name',
   'description'
 ]);</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 7: Search with Wildcards</h4>
-                <pre><code class="language-javascript">// Search for terms starting with "comp"
+                        <div class="example">
+                            <h4 class="example-title">Example 7: Search with Wildcards</h4>
+                            <pre><code class="language-javascript">// Search for terms starting with "comp"
 const wildcardResults = await db.search('products', 'comp*', [
   'name',
   'sku'
 ]);</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 8: Search with Filter</h4>
-                <pre><code class="language-javascript">// Search only in active products
+                        <div class="example">
+                            <h4 class="example-title">Example 8: Search with Filter</h4>
+                            <pre><code class="language-javascript">// Search only in active products
 const filteredResults = await db.search('products', 'monitor', [
   'name',
   'description'
@@ -643,20 +645,20 @@ const filteredResults = await db.search('products', 'monitor', [
     price: { $lt: 500 }
   }
 });</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 9: Search in Nested Fields</h4>
-                <pre><code class="language-javascript">// Search in nested object fields
+                        <div class="example">
+                            <h4 class="example-title">Example 9: Search in Nested Fields</h4>
+                            <pre><code class="language-javascript">// Search in nested object fields
 const nestedResults = await db.search('users', 'engineer', [
   'profile.jobTitle',
   'profile.skills'
 ]);</code></pre>
-            </div>
+                        </div>
 
-            <div class="example">
-                <h4 class="example-title">Example 10: Search with Highlighting</h4>
-                <pre><code class="language-javascript">// Get search results with highlighted matches
+                        <div class="example">
+                            <h4 class="example-title">Example 10: Search with Highlighting</h4>
+                            <pre><code class="language-javascript">// Get search results with highlighted matches
 const highlightedResults = await db.search('documents', 'database', [
   'title',
   'content'
@@ -665,10 +667,10 @@ const highlightedResults = await db.search('documents', 'database', [
   highlightPre: '&lt;mark&gt;',
   highlightPost: '&lt;/mark&gt;'
 });</code></pre>
-            </div>
-        </div>
+                        </div>
+                    </div>
 
-    </section>
+                </section>
 
                 <section id="events">
                     <h2>Events</h2>
@@ -912,13 +914,15 @@ loadDashboard();</code></pre>
 
     <footer>
         <div class="container">
-            <p>LiekoDB Documentation &copy; 2023 | Version 1.1.0</p>
+            <p>LiekoDB Documentation &copy; 2025 | Version 1.1.0</p>
         </div>
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/autoloader/prism-autoloader.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/line-numbers/prism-line-numbers.min.js"></script>
 </body>
 
 </html>
