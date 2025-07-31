@@ -2,7 +2,6 @@ node_modules/
 .DS_Store
 *.log
 npm/
-examples/
 storage/
 documentation.md
 package-lock.json

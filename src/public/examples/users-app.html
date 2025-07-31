@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    input,
+    button,
+    select {
+      padding: 8px;
+      margin: 5px;
+    }
+
+    select {
+      min-width: 200px;
+    }
+
+    #output {
+      border: 1px solid #ccc;
+      padding: 10px;
+      min-height: 100px;
+      white-space: pre-wrap;
+      background: #f9f9f9;
+    }
+
+    .field-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 5px;
+    }
+
+    .field-group input {
+      flex: 1;
+    }
+
+    .field-group button {
+      padding: 4px 8px;
+    }
+
+    .user-selector-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .refresh-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .refresh-btn:hover {
+      background: #0056b3;
+    }
+
+    .no-users-option {
+      color: #666;
+      font-style: italic;
+    }
+
+    #editFields {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="section">
+    <h2>👤 Create User</h2>
+    <input type="text" id="createName" placeholder="Name">
+    <input type="text" id="createEmail" placeholder="Email">
+    <div id="extraFields"></div>
+    <button onclick="addExtraField()">➕ Add Field</button>
+    <button onclick="createUser()">Create User</button>
+  </div>
+
+  <div class="section">
+    <h2>✏️ Edit User</h2>
+    <div class="user-selector-group">
+      <select id="editUserSelector">
+        <option value="">Loading users...</option>
+      </select>
+      <button class="refresh-btn" onclick="refreshUserSelectors()">🔄 Refresh</button>
+      <button onclick="loadUserForEdit()">Load</button>
+    </div>
+    <div id="editFields">
+      <input type="text" id="editName" placeholder="Name">
+      <input type="text" id="editEmail" placeholder="Email">
+      <div id="editExtraFields"></div>
+      <button onclick="addEditExtraField()">➕ Add Field</button>
+      <button onclick="updateUser()">Update User</button>
+    </div>
+    <div id="editFields" style="display: none;"></div>
+  </div>
+
+  <div class="section">
+    <h2>🔍 Get User</h2>
+    <div class="user-selector-group">
+      <select id="getUserSelector">
+        <option value="">Loading users...</option>
+      </select>
+      <button class="refresh-btn" onclick="refreshUserSelectors()">🔄 Refresh</button>
+      <button onclick="getUser()">Fetch</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🗑 Delete User</h2>
+    <div class="user-selector-group">
+      <select id="deleteUserSelector">
+        <option value="">Loading users...</option>
+      </select>
+      <button class="refresh-btn" onclick="refreshUserSelectors()">🔄 Refresh</button>
+      <button onclick="deleteUser()">Delete</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📦 All Users</h2>
+    <button onclick="fetchAllUsers()">Fetch All</button>
+  </div>
+
+  <div class="section">
+    <h2>🔧 Output</h2>
+    <div id="output">Waiting...</div>
+  </div>
+
+  <script src="http://gnode01.pyts-cloud.fr:9700/liekoDB.js"></script>
+
+  <script>
+
+    const db = new liekoDB({
+      databaseUrl: "http://gnode01.pyts-cloud.fr:9700",
+      token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde'
+    });
+
+    const output = document.getElementById('output');
+    const extraFieldsContainer = document.getElementById('extraFields');
+    const editExtraFieldsContainer = document.getElementById('editExtraFields');
+
+    function displayOutput(message) {
+      output.textContent = typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
+    }
+
+    // Populate user selectors with existing user IDs
+    async function populateUserSelectors() {
+      const getSelector = document.getElementById('getUserSelector');
+      const deleteSelector = document.getElementById('deleteUserSelector');
+      const editSelector = document.getElementById('editUserSelector');
+
+      try {
+        const users = await db.get('users');
+
+        console.log('Fetched users:', users);
+
+        const userIds = Object.keys(users);
+
+        // Clear existing options
+        getSelector.innerHTML = '';
+        deleteSelector.innerHTML = '';
+        editSelector.innerHTML = '';
+
+        if (userIds.length === 0) {
+          const noUserOption = '<option value="" class="no-users-option">No users available</option>';
+          getSelector.innerHTML = noUserOption;
+          deleteSelector.innerHTML = noUserOption;
+          editSelector.innerHTML = noUserOption;
+        } else {
+          // Add default option
+          const defaultOption = '<option value="">Select a user...</option>';
+          getSelector.innerHTML = defaultOption;
+          deleteSelector.innerHTML = defaultOption;
+          editSelector.innerHTML = defaultOption;
+
+          // Add user options with name and email for easier identification
+          userIds.forEach(id => {
+
+            console.log(`Populating selector with user ID: ${id}`);
+
+            const user = users[id];
+            let displayText = id;
+            if (user.name && user.email) {
+              displayText = `${user.name} (${user.email}) - ${id}`;
+            } else if (user.name) {
+              displayText = `${user.name} - ${id}`;
+            } else if (user.email) {
+              displayText = `${user.email} - ${id}`;
+            }
+
+            const option = `<option value="${id}">${displayText}</option>`;
+            getSelector.innerHTML += option;
+            deleteSelector.innerHTML += option;
+            editSelector.innerHTML += option;
+          });
+        }
+      } catch (error) {
+        getSelector.innerHTML = '<option value="">Error loading users</option>';
+        deleteSelector.innerHTML = '<option value="">Error loading users</option>';
+        editSelector.innerHTML = '<option value="">Error loading users</option>';
+        console.error('Error populating selectors:', error);
+      }
+    }
+
+    // Refresh user selectors
+    async function refreshUserSelectors() {
+      const getSelector = document.getElementById('getUserSelector');
+      const deleteSelector = document.getElementById('deleteUserSelector');
+      const editSelector = document.getElementById('editUserSelector');
+
+      getSelector.innerHTML = '<option value="">Loading users...</option>';
+      deleteSelector.innerHTML = '<option value="">Loading users...</option>';
+      editSelector.innerHTML = '<option value="">Loading users...</option>';
+
+      await populateUserSelectors();
+    }
+
+    function addExtraField() {
+      const div = document.createElement('div');
+      div.className = 'field-group';
+      div.innerHTML = `
+        <input type="text" placeholder="Field Name" class="fieldName">
+        <input type="text" placeholder="Value" class="fieldValue">
+        <button onclick="this.parentElement.remove()">❌</button>
+      `;
+      extraFieldsContainer.appendChild(div);
+    }
+
+    function addEditExtraField(key = '', value = '') {
+      const div = document.createElement('div');
+      div.className = 'field-group';
+      div.innerHTML = `
+        <input type="text" placeholder="Field Name" class="fieldName" value="${key}">
+        <input type="text" placeholder="Value" class="fieldValue" value="${value}">
+        <button onclick="this.parentElement.remove()">❌</button>
+      `;
+      editExtraFieldsContainer.appendChild(div);
+    }
+
+    function generateUserId() {
+      const timestamp = Date.now().toString(36);
+      const randomPart = Math.random().toString(36).substring(2, 6);
+      return `user_${timestamp}_${randomPart}`;
+    }
+
+    async function createUser() {
+      const name = document.getElementById('createName').value.trim();
+      const email = document.getElementById('createEmail').value.trim();
+
+      if (!name || !email) {
+        displayOutput('Please enter Name and Email.');
+        return;
+      }
+
+      const id = generateUserId();
+      const user = { name, email };
+
+      const fields = extraFieldsContainer.querySelectorAll('.field-group');
+      fields.forEach(group => {
+        const key = group.querySelector('.fieldName').value.trim();
+        const value = group.querySelector('.fieldValue').value.trim();
+        if (key) user[key] = value;
+      });
+
+      try {
+        await db.set('users', id, user);
+        displayOutput(`✅ User created successfully!\n🆔 ID: ${id}`);
+        document.getElementById('createName').value = '';
+        document.getElementById('createEmail').value = '';
+        extraFieldsContainer.innerHTML = '';
+
+        // Refresh selectors after creating a new user
+        await populateUserSelectors();
+      } catch (error) {
+        displayOutput(`Error creating user: ${error.message}`);
+      }
+    }
+
+    async function loadUserForEdit() {
+      const id = document.getElementById('editUserSelector').value;
+      if (!id) {
+        displayOutput('Please select a User ID.');
+        return;
+      }
+
+      try {
+        const user = await db.get('users', id);
+        if (!user) {
+          displayOutput(`User ${id} not found.`);
+          return;
+        }
+
+        // Populate the edit form
+        document.getElementById('editName').value = user.name || '';
+        document.getElementById('editEmail').value = user.email || '';
+
+        // Clear any existing extra fields
+        editExtraFieldsContainer.innerHTML = '';
+
+        // Add extra fields (excluding name and email which we already have)
+        Object.keys(user).forEach(key => {
+          if (key !== 'name' && key !== 'email') {
+            addEditExtraField(key, user[key]);
+          }
+        });
+
+        displayOutput(`User ${id} loaded for editing.`);
+      } catch (error) {
+        displayOutput(`Error loading user: ${error.message}`);
+      }
+    }
+
+    async function updateUser() {
+      const id = document.getElementById('editUserSelector').value;
+      if (!id) {
+        displayOutput('Please select a User ID.');
+        return;
+      }
+
+      const name = document.getElementById('editName').value.trim();
+      const email = document.getElementById('editEmail').value.trim();
+
+      if (!name || !email) {
+        displayOutput('Please enter Name and Email.');
+        return;
+      }
+
+      const user = { name, email };
+
+      const fields = editExtraFieldsContainer.querySelectorAll('.field-group');
+      fields.forEach(group => {
+        const key = group.querySelector('.fieldName').value.trim();
+        const value = group.querySelector('.fieldValue').value.trim();
+        if (key) user[key] = value;
+      });
+
+      try {
+        await db.set('users', id, user);
+        displayOutput(`✅ User updated successfully!\n🆔 ID: ${id}`);
+
+        // Refresh selectors after updating the user
+        await populateUserSelectors();
+      } catch (error) {
+        displayOutput(`Error updating user: ${error.message}`);
+      }
+    }
+
+    async function getUser() {
+      const id = document.getElementById('getUserSelector').value;
+      if (!id) {
+        displayOutput('Please select a User ID.');
+        return;
+      }
+
+      try {
+        const user = await db.get('users', id);
+        displayOutput(user ? user : `User ${id} not found.`);
+      } catch (error) {
+        displayOutput(`Error fetching user: ${error.message}`);
+      }
+    }
+
+    async function deleteUser() {
+      const id = document.getElementById('deleteUserSelector').value;
+      if (!id) {
+        displayOutput('Please select a User ID.');
+        return;
+      }
+
+      // Get user name/email for confirmation message
+      let userDisplay = id;
+      try {
+        const user = await db.get('users', id);
+        if (user.name && user.email) {
+          userDisplay = `${user.name} (${user.email})`;
+        } else if (user.name) {
+          userDisplay = user.name;
+        } else if (user.email) {
+          userDisplay = user.email;
+        }
+      } catch (error) {
+        userDisplay = id;
+      }
+
+      if (!confirm(`Are you sure you want to delete user "${userDisplay}"?`)) {
+        return;
+      }
+
+      try {
+        const success = await db.delete('users', id);
+        displayOutput(success ? `User "${userDisplay}" deleted.` : `User ${id} not found.`);
+
+        // Refresh selectors after deleting a user
+        await populateUserSelectors();
+      } catch (error) {
+        displayOutput(`Error deleting user: ${error.message}`);
+      }
+    }
+
+    async function fetchAllUsers() {
+      try {
+        const users = await db.get('users');
+        displayOutput(Object.keys(users).length ? users : 'No users found.');
+      } catch (error) {
+        displayOutput(`Error fetching users: ${error.message}`);
+      }
+    }
+
+    // Initialize selectors when page loads
+    window.addEventListener('load', async () => {
+      await populateUserSelectors();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>liekoDB with Events - Browser Example</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .status-ready {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .status-connecting {
+            background: #FF9800;
+            color: white;
+        }
+
+        .status-error {
+            background: #F44336;
+            color: white;
+        }
+
+        .output {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            border: 2px solid #333;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+
+        .log-info {
+            color: #00ff00;
+        }
+
+        .log-error {
+            color: #ff4444;
+        }
+
+        .log-warning {
+            color: #ffaa00;
+        }
+
+        .log-event {
+            color: #44aaff;
+        }
+
+        .timestamp {
+            color: #888;
+            font-size: 11px;
+        }
+    </style>
+
+    <script src="http://gnode01.pyts-cloud.fr:9700/liekoDB.js"></script>
+
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 liekoDB with Events</h1>
+
+        <div class="status" id="status">
+            <div class="status-item status-connecting">Connecting...</div>
+        </div>
+
+        <div class="controls">
+            <button onclick="testConnection()">Test Connection</button>
+            <button onclick="createUser()">Create User</button>
+            <button onclick="getUsers()">Get Users</button>
+            <button onclick="updateUser()">Update User</button>
+            <button onclick="deleteUser()">Delete User</button>
+            <button onclick="clearOutput()">Clear Output</button>
+        </div>
+
+        <div class="output" id="output"></div>
+    </div>
+
+    <script>
+        // Initialize database
+        const db = new liekoDB({
+            databaseUrl: 'http://gnode01.pyts-cloud.fr:9700',
+            token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde',
+            debug: true
+        });
+
+        // Event listeners
+        db.on('connecting', () => {
+            updateStatus('connecting', 'Connecting...');
+            displayOutput('🔄 Connecting to database...', 'warning');
+        });
+
+        db.on('ready', () => {
+            updateStatus('ready', 'Connected');
+            displayOutput('✅ Database is ready!', 'info');
+        });
+
+        db.on('error', (error) => {
+            updateStatus('error', 'Error');
+            displayOutput(`❌ Database error: ${error.message}`, 'error');
+        });
+
+        db.on('operation:start', (data) => {
+            displayOutput(`🚀 Starting ${data.type} operation on ${data.collection}${data.key ? '/' + data.key : ''}`, 'event');
+        });
+
+        db.on('operation:success', (data) => {
+            displayOutput(`✅ ${data.type} operation successful`, 'info');
+        });
+
+        db.on('operation:error', (data) => {
+            displayOutput(`❌ ${data.type} operation failed: ${data.error.message}`, 'error');
+        });
+
+        db.on('record:created', (data) => {
+            displayOutput(`📝 Record created in ${data.collection}: ${data.id}`, 'event');
+        });
+
+        db.on('record:updated', (data) => {
+            displayOutput(`✏️ Record updated in ${data.collection}: ${data.id}`, 'event');
+        });
+
+        db.on('record:deleted', (data) => {
+            displayOutput(`🗑️ Record deleted from ${data.collection}: ${data.key}`, 'event');
+        });
+
+        // UI Functions
+        function updateStatus(type, text) {
+            const statusEl = document.getElementById('status');
+            statusEl.innerHTML = `<div class="status-item status-${type}">${text}</div>`;
+        }
+
+        function displayOutput(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        // Test functions
+        async function testConnection() {
+            try {
+                const result = await db.health();
+                displayOutput(`🏥 Health check: ${JSON.stringify(result)}`, 'info');
+            } catch (error) {
+                displayOutput(`❌ Health check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function createUser() {
+            try {
+                const userId = 'user_' + Date.now();
+                const userData = {
+                    name: 'John Doe',
+                    email: 'john@example.com',
+                    age: 30,
+                    createdAt: new Date().toISOString()
+                };
+
+                const result = await db.set('users', userId, userData);
+                displayOutput(`👤 User created: ${JSON.stringify(result, null, 2)}`, 'info');
+            } catch (error) {
+                displayOutput(`❌ Failed to create user: ${error.message}`, 'error');
+            }
+        }
+
+        async function getUsers() {
+            try {
+                const users = await db.get('users');
+                displayOutput(`👥 Users: ${JSON.stringify(users, null, 2)}`, 'info');
+            } catch (error) {
+                displayOutput(`❌ Failed to get users: ${error.message}`, 'error');
+            }
+        }
+
+        async function updateUser() {
+            try {
+                const users = await db.get('users');
+                const userIds = Object.keys(users);
+
+                if (userIds.length === 0) {
+                    displayOutput('ℹ️ No users found to update', 'warning');
+                    return;
+                }
+
+                const userId = userIds[0];
+                const updateData = {
+                    ...users[userId],
+                    age: Math.floor(Math.random() * 50) + 20,
+                    updatedAt: new Date().toISOString()
+                };
+
+                const result = await db.set('users', userId, updateData);
+                displayOutput(`✏️ User updated: ${JSON.stringify(result, null, 2)}`, 'info');
+            } catch (error) {
+                displayOutput(`❌ Failed to update user: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteUser() {
+            try {
+                const users = await db.get('users');
+                const userIds = Object.keys(users);
+
+                if (userIds.length === 0) {
+                    displayOutput('ℹ️ No users found to delete', 'warning');
+                    return;
+                }
+
+                const userId = userIds[0];
+                const result = await db.delete('users', userId);
+                displayOutput(`🗑️ User deleted: ${result}`, 'info');
+            } catch (error) {
+                displayOutput(`❌ Failed to delete user: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize display
+        displayOutput('🚀 liekoDB Event Demo initialized', 'info');
+    </script>
+</body>
+
+</html>

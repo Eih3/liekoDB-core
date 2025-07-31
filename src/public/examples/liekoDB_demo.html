@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiekoDB Command Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="http://gnode01.pyts-cloud.fr:9700/liekoDB.js"></script> <!-- Adjust path to your liekoDB-1.1.js file -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #output {
+            white-space: pre-wrap;
+            font-family: monospace;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .command-section {
+            border: 1px solid #e5e7eb;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .example-button {
+            background-color: #3b82f6;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+        .example-button:hover {
+            background-color: #2563eb;
+        }
+        select {
+            border: 1px solid #d1d5db;
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold mb-6 text-center">LiekoDB Command Demo</h1>
+        
+        <div id="connectionStatus" class="mb-4 text-center"></div>
+
+        <!-- Setup Collection -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Setup Collection</h2>
+            <p class="text-gray-600 mb-4">Initialize testCollection with 20 random records (names, ages, cities, jobs, salaries, departments, tags).</p>
+            <button onclick="setupCollection()" class="example-button">Run Setup Example</button>
+        </div>
+
+        <!-- Search -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Search</h2>
+            <p class="text-gray-600 mb-2">Search records by term in specified fields.</p>
+            <select id="searchExample" onchange="updateSearchInputs()">
+                <option value="1">Example 1: Search "Smith" in name</option>
+                <option value="2">Example 2: Search "on" in city, job</option>
+                <option value="3">Example 3: Search "remote" in tags</option>
+                <option value="4">Example 4: Regex search "[Jj]ohn" in name</option>
+                <option value="5">Example 5: Empty term (should return empty)</option>
+            </select>
+            <input id="searchTerm" type="text" placeholder="Search Term" class="border p-2 w-full mb-2 rounded">
+            <input id="searchFields" type="text" placeholder="Fields (e.g., name,city)" class="border p-2 w-full mb-2 rounded">
+            <button onclick="runSearch()" class="example-button">Run Search</button>
+        </div>
+
+        <!-- Count -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Count</h2>
+            <p class="text-gray-600 mb-2">Count records with a filter.</p>
+            <select id="countExample" onchange="updateCountInputs()">
+                <option value="1">Example 1: Count where department="IT"</option>
+                <option value="2">Example 2: Count where age > 30 and city in ["London", "Tokyo"]</option>
+                <option value="3">Example 3: Count all records</option>
+                <option value="4">Example 4: Count with invalid filter</option>
+                <option value="5">Example 5: Count with nested field contact.email</option>
+            </select>
+            <input id="countFilter" type="text" placeholder='Filter (e.g., {"department":"IT"})' class="border p-2 w-full mb-2 rounded">
+            <button onclick="runCount()" class="example-button">Run Count</button>
+        </div>
+
+        <!-- Find-One -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Find-One</h2>
+            <p class="text-gray-600 mb-2">Find the first record matching a filter.</p>
+            <select id="findOneExample" onchange="updateFindOneInputs()">
+                <option value="1">Example 1: Find where salary <= 60000</option>
+                <option value="2">Example 2: Find where tags includes "senior"</option>
+                <option value="3">Example 3: Find where name matches regex ".*son$"</option>
+                <option value="4">Example 4: Find non-matching filter</option>
+                <option value="5">Example 5: Find with nested field contact.email</option>
+            </select>
+            <input id="findOneFilter" type="text" placeholder='Filter (e.g., {"salary": {"$lte": 60000}})' class="border p-2 w-full mb-2 rounded">
+            <button onclick="runFindOne()" class="example-button">Run Find-One</button>
+        </div>
+
+        <!-- Keys -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Keys</h2>
+            <p class="text-gray-600 mb-2">Get all record IDs in the collection.</p>
+            <select id="keysExample">
+                <option value="1">Example 1: List all keys</option>
+                <option value="2">Example 2: List keys after clearing collection</option>
+                <option value="3">Example 3: List keys after adding new record</option>
+            </select>
+            <button onclick="runKeys()" class="example-button">Run Keys</button>
+        </div>
+
+        <!-- Entries -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Entries</h2>
+            <p class="text-gray-600 mb-2">Get all records as key-value pairs.</p>
+            <select id="entriesExample">
+                <option value="1">Example 1: List all entries</option>
+                <option value="2">Example 2 Ascending
+                <option value="3">Example 3: List entries after incrementing salaries</option>
+            </select>
+            <button onclick="runEntries()" class="example-button">Run Entries</button>
+        </div>
+
+        <!-- Size -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Size</h2>
+            <p class="text-gray-600 mb-2">Get the number of records in the collection.</p>
+            <select id="sizeExample">
+                <option value="1">Example 1: Get collection size</option>
+                <option value="2">Example 2: Get size after clearing collection</option>
+                <option value="3">Example 3: Get size after adding new record</option>
+            </select>
+            <button onclick="runSize()" class="example-button">Run Size</button>
+        </div>
+
+        <!-- Increment -->
+        <div class="command-section">
+            <h2 class="text-lg font-semibold mb-2">Increment</h2>
+            <p class="text-gray-600 mb-2">Increment a numeric field in a record.</p>
+            <select id="incrementExample" onchange="updateIncrementInputs()">
+                <option value="1">Example 1: Increment record1 age by 1</option>
+                <option value="2">Example 2: Increment record2 salary by 5000</option>
+                <option value="3">Example 3: Increment non-existent record</option>
+                <option value="4">Example 4: Increment record3 salary by -2000</option>
+                <option value="5">Example 5: Increment nested field record4 contact.yearsExperience</option>
+            </select>
+            <input id="incrementId" type="text" placeholder="Record ID (e.g., record1)" class="border p-2 w-full mb-2 rounded">
+            <input id="incrementField" type="text" placeholder="Field (e.g., age)" class="border p-2 w-full mb-2 rounded">
+            <input id="incrementValue" type="number" placeholder="Value (e.g., 1)" class="border p-2 w-full mb-2 rounded">
+            <button onclick="runIncrement()" class="example-button">Run Increment</button>
+        </div>
+
+        <!-- Output -->
+        <div class="mt-6">
+            <h2 class="text-lg font-semibold mb-2">Output</h2>
+            <div id="output" class="border p-4 rounded-lg"></div>
+        </div>
+    </div>
+
+    <script>
+        const db = new liekoDB({
+            databaseUrl: 'http://gnode01.pyts-cloud.fr:9700',
+            token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde'
+        });
+
+        // Update connection status
+        db.on('ready', () => {
+            document.getElementById('connectionStatus').innerHTML = '<span class="text-green-600 font-bold">Connected to LiekoDB</span>';
+        });
+        db.on('error', (err) => {
+            document.getElementById('connectionStatus').innerHTML = `<span class="text-red-600 font-bold">Error: ${err.message}</span>`;
+        });
+
+        // Log output to the UI
+        function logOutput(message) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.textContent += `${new Date().toISOString()} - ${message}\n`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+
+        // Random data generation
+        function generateRandomRecords(count) {
+            const names = ['John Smith', 'Emma Johnson', 'Liam Brown', 'Olivia Davis', 'Noah Wilson', 'Ava Taylor', 'James Anderson', 'Sophia Martinez', 'Michael Thomas', 'Isabella Lee', 'William Clark', 'Mia Lewis', 'David Walker', 'Charlotte Harris', 'Ethan Allen', 'Amelia Young', 'Daniel King', 'Harper Wright', 'Lucas Scott', 'Evelyn Green'];
+            const cities = ['New York', 'London', 'Paris', 'Tokyo', 'Sydney', 'Berlin', 'Toronto', 'Mumbai', 'Rio de Janeiro', 'Cape Town'];
+            const jobs = ['Developer', 'Manager', 'Designer', 'Analyst', 'Engineer', 'Consultant'];
+            const departments = ['IT', 'HR', 'Marketing', 'Sales', 'Finance', 'Operations'];
+            const tags = [['remote', 'senior'], ['on-site'], ['junior', 'hybrid'], ['remote'], ['senior', 'hybrid'], ['contract']];
+            const records = [];
+            for (let i = 0; i < count; i++) {
+                const id = '2' + Math.floor(Math.random() * (100000 - 30000 + 1)) + 30000 //`record${i + 1}`;
+                const name = names[Math.floor(Math.random() * names.length)];
+                const age = Math.floor(Math.random() * (65 - 18 + 1)) + 18;
+                const city = cities[Math.floor(Math.random() * cities.length)];
+                const job = jobs[Math.floor(Math.random() * jobs.length)];
+                const salary = Math.floor(Math.random() * (100000 - 30000 + 1)) + 30000;
+                const department = departments[Math.floor(Math.random() * departments.length)];
+                const selectedTags = tags[Math.floor(Math.random() * tags.length)];
+                const email = `${name.toLowerCase().replace(' ', '.')}@example.com`;
+                records.push({
+                    id,
+                    name,
+                    age,
+                    city,
+                    job,
+                    salary,
+                    department,
+                    tags: selectedTags,
+                    contact: { email, yearsExperience: Math.floor(Math.random() * 20) }
+                });
+            }
+            return records;
+        }
+
+        // Setup collection with random data
+        async function setupCollection() {
+            try {
+                await db.ensureCollection('testCollection');
+                const records = generateRandomRecords(20);
+                const result = await db.batchSet('testCollection', records);
+                logOutput(`Command: db.batchSet('testCollection', [20 random records])\nResult: `);
+                //logOutput(`Command: db.batchSet('testCollection', [20 random records])\nResult: ${JSON.stringify(result, null, 2)}`);
+            } catch (err) {
+                logOutput(`Error setting up collection: ${err.message}`);
+            }
+        }
+
+        // Update search inputs
+        function updateSearchInputs() {
+            const example = document.getElementById('searchExample').value;
+            const termInput = document.getElementById('searchTerm');
+            const fieldsInput = document.getElementById('searchFields');
+            if (example === '1') {
+                termInput.value = 'Smith';
+                fieldsInput.value = 'name';
+            } else if (example === '2') {
+                termInput.value = 'on';
+                fieldsInput.value = 'city,job';
+            } else if (example === '3') {
+                termInput.value = 'remote';
+                fieldsInput.value = 'tags';
+            } else if (example === '4') {
+                termInput.value = '[Jj]ohn';
+                fieldsInput.value = 'name';
+            } else if (example === '5') {
+                termInput.value = '';
+                fieldsInput.value = 'name';
+            }
+        }
+
+        // Search
+        async function runSearch() {
+            try {
+                const term = document.getElementById('searchTerm').value;
+                const fields = document.getElementById('searchFields').value.split(',').map(f => f.trim()).filter(f => f);
+                const command = `db.search('testCollection', '${term}', ${JSON.stringify(fields || null)}, { limit: 10 })`;
+                const result = await db.search('testCollection', term, fields.length ? fields : null, { limit: 10 });
+                logOutput(`Command: ${command}\nResult: ${JSON.stringify(result, null, 2)}`);
+            } catch (err) {
+                logOutput(`Error searching: ${err.message}`);
+            }
+        }
+
+        // Update count inputs
+        function updateCountInputs() {
+            const example = document.getElementById('countExample').value;
+            const filterInput = document.getElementById('countFilter');
+            if (example === '1') {
+                filterInput.value = '{"department":"IT"}';
+            } else if (example === '2') {
+                filterInput.value = '{"age": {"$gt": 30}, "city": {"$in": ["London", "Tokyo"]}}';
+            } else if (example === '3') {
+                filterInput.value = '';
+            } else if (example === '4') {
+                filterInput.value = '{invalid: json}';
+            } else if (example === '5') {
+                filterInput.value = '{"contact.email": {"$regex": ".*@example.com$"}}';
+            }
+        }
+
+        // Count
+        async function runCount() {
+            try {
+                await db.ensureCollection('testCollection');
+                const filterInput = document.getElementById('countFilter').value;
+                let filter = null;
+                if (filterInput) {
+                    try {
+                        filter = JSON.parse(filterInput);
+                    } catch (e) {
+                        throw new Error('Invalid filter JSON');
+                    }
+                }
+                const command = filter ? `db.count('testCollection', ${JSON.stringify(filter)})` : `db.count('testCollection')`;
+                const count = await db.count('testCollection', filter);
+                logOutput(`Command: ${command}\nResult: ${count}`);
+            } catch (err) {
+                logOutput(`Error counting: ${err.message}`);
+            }
+        }
+
+        // Update find-one inputs
+        function updateFindOneInputs() {
+            const example = document.getElementById('findOneExample').value;
+            const filterInput = document.getElementById('findOneFilter');
+            if (example === '1') {
+                filterInput.value = '{"salary": {"$lte": 60000}}';
+            } else if (example === '2') {
+                filterInput.value = '{"tags": {"$in": ["senior"]}}';
+            } else if (example === '3') {
+                filterInput.value = '{"name": {"$regex": ".*son$"}}';
+            } else if (example === '4') {
+                filterInput.value = '{"name": "NonExistent"}';
+            } else if (example === '5') {
+                filterInput.value = '{"contact.email": {"$regex": ".*@example.com$"}}';
+            }
+        }
+
+        // Find-One
+        async function runFindOne() {
+            try {
+                const filterInput = document.getElementById('findOneFilter').value;
+                let filter = null;
+                if (filterInput) {
+                    try {
+                        filter = JSON.parse(filterInput);
+                    } catch (e) {
+                        throw new Error('Invalid filter JSON');
+                    }
+                } else {
+                    filter = { salary: { $lte: 60000 } }; // Default
+                }
+                const command = `db.findOne('testCollection', ${JSON.stringify(filter)})`;
+                const result = await db.findOne('testCollection', filter);
+                logOutput(`Command: ${command}\nResult: ${JSON.stringify(result, null, 2)}`);
+            } catch (err) {
+                logOutput(`Error finding one: ${err.message}`);
+            }
+        }
+
+        // Keys
+        async function runKeys() {
+            try {
+                const example = document.getElementById('keysExample').value;
+                if (example === '2') {
+                    await db.clear('testCollection');
+                    logOutput(`Command: db.clear('testCollection')\nResult: Cleared testCollection`);
+                } else if (example === '3') {
+                    const newRecord = { id: 'record_new', name: 'New User', age: 40, city: 'Seoul', job: 'Consultant', salary: 80000, department: 'Sales', tags: ['contract'], contact: { email: 'new.user@example.com', yearsExperience: 15 } };
+                    await db.set('testCollection', newRecord.id, newRecord);
+                    logOutput(`Command: db.set('testCollection', '${newRecord.id}', ${JSON.stringify(newRecord)})\nResult: Record added`);
+                }
+                const command = `db.keys('testCollection')`;
+                const keys = await db.keys('testCollection');
+                logOutput(`Command: ${command}\nResult: ${JSON.stringify(keys, null, 2)}`);
+            } catch (err) {
+                logOutput(`Error getting keys: ${err.message}`);
+            }
+        }
+
+        // Entries
+        async function runEntries() {
+            try {
+                const example = document.getElementById('entriesExample').value;
+                if (example === '2') {
+                    await db.clear('testCollection');
+                    logOutput(`Command: db.clear('testCollection')\nResult: Cleared testCollection`);
+                } else if (example === '3') {
+                    const record = { id: 'record1', salary: 55000 };
+                    await db.update('testCollection', record.id, { salary: record.salary });
+                    logOutput(`Command: db.update('testCollection', 'record1', ${JSON.stringify({ salary: record.salary })})\nResult: Salary updated`);
+                }
+                const command = `db.entries('testCollection')`;
+                const entries = await db.entries('testCollection');
+                logOutput(`Command: ${command}\nResult: ${JSON.stringify(entries, null, 2)}`);
+            } catch (err) {
+                logOutput(`Error getting entries: ${err.message}`);
+            }
+        }
+
+        // Size
+        async function runSize() {
+            try {
+                const example = document.getElementById('sizeExample').value;
+                if (example === '2') {
+                    await db.clear('testCollection');
+                    logOutput(`Command: db.clear('testCollection')\nResult: Cleared testCollection`);
+                } else if (example === '3') {
+                    const newRecord = { id: 'record_new', name: 'New User', age: 40, city: 'Seoul', job: 'Consultant', salary: 80000, department: 'Sales', tags: ['contract'], contact: { email: 'new.user@example.com', yearsExperience: 15 } };
+                    await db.set('testCollection', newRecord.id, newRecord);
+                    logOutput(`Command: db.set('testCollection', '${newRecord.id}', ${JSON.stringify(newRecord)})\nResult: Record added`);
+                }
+                const command = `db.size('testCollection')`;
+                const size = await db.size('testCollection');
+                logOutput(`Command: ${command}\nResult: ${size}`);
+            } catch (err) {
+                logOutput(`Error getting size: ${err.message}`);
+            }
+        }
+
+        // Update increment inputs
+        function updateIncrementInputs() {
+            const example = document.getElementById('incrementExample').value;
+            const idInput = document.getElementById('incrementId');
+            const fieldInput = document.getElementById('incrementField');
+            const valueInput = document.getElementById('incrementValue');
+            if (example === '1') {
+                idInput.value = 'record1';
+                fieldInput.value = 'age';
+                valueInput.value = '1';
+            } else if (example === '2') {
+                idInput.value = 'record2';
+                fieldInput.value = 'salary';
+                valueInput.value = '5000';
+            } else if (example === '3') {
+                idInput.value = 'nonexistent';
+                fieldInput.value = 'age';
+                valueInput.value = '1';
+            } else if (example === '4') {
+                idInput.value = 'record3';
+                fieldInput.value = 'salary';
+                valueInput.value = '-2000';
+            } else if (example === '5') {
+                idInput.value = 'record4';
+                fieldInput.value = 'contact.yearsExperience';
+                valueInput.value = '2';
+            }
+        }
+
+        // Increment
+        async function runIncrement() {
+            try {
+                const id = document.getElementById('incrementId').value;
+                const field = document.getElementById('incrementField').value;
+                const value = parseFloat(document.getElementById('incrementValue').value);
+                if (!id || !field || isNaN(value)) {
+                    throw new Error('Record ID, field, and value are required');
+                }
+                const command = `db.increment('testCollection', '${id}', '${field}', ${value})`;
+                const result = await db.increment('testCollection', id, field, value);
+                logOutput(`Command: ${command}\nResult: ${JSON.stringify(result, null, 2)}`);
+            } catch (err) {
+                logOutput(`Error incrementing: ${err.message}`);
+            }
+        }
+
+        // Initialize default inputs
+        updateSearchInputs();
+        updateCountInputs();
+        updateFindOneInputs();
+        updateIncrementInputs();
+    </script>
+</body>
+</html>

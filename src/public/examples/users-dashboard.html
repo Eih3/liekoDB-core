@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --primary-dark: #3a56d4;
+      --secondary: #3f37c9;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --success: #4cf067;
+      --danger: #f72585;
+      --warning: #f8961e;
+      --info: #4895ef;
+      --border-radius: 0.375rem;
+      --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: var(--dark);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      background-color: white;
+      box-shadow: var(--box-shadow);
+      padding: 15px 0;
+      margin-bottom: 30px;
+      border-radius: var(--border-radius);
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .dashboard {
+      background-color: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      overflow: hidden;
+    }
+
+    .tabs {
+      display: flex;
+      background-color: #f1f3f5;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      border-right: 1px solid #dee2e6;
+    }
+
+    .tab:hover {
+      background-color: #e9ecef;
+    }
+
+    .tab.active {
+      background-color: white;
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 20px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .card {
+      background-color: white;
+      border-radius: var(--border-radius);
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    input, select, button {
+      padding: 10px;
+      border: 1px solid #ced4da;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: var(--primary-dark);
+    }
+
+    button.btn-danger {
+      background-color: var(--danger);
+    }
+
+    button.btn-danger:hover {
+      background-color: #d1145a;
+    }
+
+    button.btn-success {
+      background-color: var(--success);
+    }
+
+    button.btn-success:hover {
+      background-color: #3ab5d8;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .search-bar input {
+      flex: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    .actions {
+      display: flex;
+      gap: 5px;
+    }
+
+    .btn-icon {
+      padding: 5px 8px;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-icon i {
+      font-size: 0.8rem;
+    }
+
+    .btn-edit {
+      background-color: var(--warning);
+    }
+
+    .btn-delete {
+      background-color: var(--danger);
+    }
+
+    .btn-view {
+      background-color: var(--info);
+    }
+
+    .alert {
+      padding: 10px 15px;
+      border-radius: var(--border-radius);
+      margin-bottom: 15px;
+    }
+
+    .alert-success {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+
+    .alert-danger {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: var(--border-radius);
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .close-modal {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #6c757d;
+    }
+
+    .extra-fields {
+      margin-top: 15px;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .field-row input {
+      flex: 1;
+    }
+
+    .field-row button {
+      width: auto;
+      padding: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .tabs {
+        flex-direction: column;
+      }
+      
+      .tab {
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+      }
+      
+      .search-bar {
+        flex-direction: column;
+      }
+      
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="container header-content">
+      <div class="logo">User Management Dashboard</div>
+      <div id="status-indicator" style="color: var(--success)">
+        <i class="fas fa-circle"></i> Connected
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="dashboard">
+      <div class="tabs">
+        <div class="tab active" data-tab="users">Users</div>
+        <div class="tab" data-tab="create">Create User</div>
+        <div class="tab" data-tab="settings">Settings</div>
+      </div>
+
+      <div class="tab-content active" id="users-tab">
+        <div class="card">
+          <div class="search-bar">
+            <input type="text" id="search-users" placeholder="Search users...">
+            <button id="refresh-users"><i class="fas fa-sync-alt"></i> Refresh</button>
+          </div>
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <!-- Users will be loaded here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-content" id="create-tab">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Create New User</div>
+          </div>
+          <form id="create-user-form">
+            <div class="form-group">
+              <label for="create-name">Name</label>
+              <input type="text" id="create-name" required>
+            </div>
+            <div class="form-group">
+              <label for="create-email">Email</label>
+              <input type="email" id="create-email" required>
+            </div>
+            <div class="extra-fields" id="create-extra-fields">
+              <!-- Extra fields will be added here -->
+            </div>
+            <button type="button" class="btn-success" id="add-field"><i class="fas fa-plus"></i> Add Field</button>
+            <button type="submit" class="btn-success"><i class="fas fa-user-plus"></i> Create User</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="tab-content" id="settings-tab">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Database Settings</div>
+          </div>
+          <div class="form-group">
+            <label for="db-url">Database URL</label>
+            <input type="text" id="db-url" value="http://gnode01.pyts-cloud.fr:9700">
+          </div>
+          <div class="form-group">
+            <label for="db-token">Access Token</label>
+            <input type="text" id="db-token" value="108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde">
+          </div>
+          <button id="save-settings"><i class="fas fa-save"></i> Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit User Modal -->
+  <div class="modal" id="edit-user-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Edit User</div>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="edit-user-form">
+        <input type="hidden" id="edit-user-id">
+        <div class="form-group">
+          <label for="edit-name">Name</label>
+          <input type="text" id="edit-name" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-email">Email</label>
+          <input type="email" id="edit-email" required>
+        </div>
+        <div class="extra-fields" id="edit-extra-fields">
+          <!-- Extra fields will be added here -->
+        </div>
+        <button type="button" class="btn-success" id="add-edit-field"><i class="fas fa-plus"></i> Add Field</button>
+        <button type="submit" class="btn-success"><i class="fas fa-save"></i> Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- View User Modal -->
+  <div class="modal" id="view-user-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">User Details</div>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div id="user-details">
+        <!-- User details will be loaded here -->
+      </div>
+    </div>
+  </div>
+
+  <script src="http://gnode01.pyts-cloud.fr:9700/liekoDB.js"></script>
+  <script>
+
+    let db = new liekoDB({ 
+      databaseUrl: "http://gnode01.pyts-cloud.fr:9700", 
+      token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde' 
+    });
+
+    // DOM elements
+    const usersTableBody = document.getElementById('users-table-body');
+    const searchInput = document.getElementById('search-users');
+    const refreshBtn = document.getElementById('refresh-users');
+    const createUserForm = document.getElementById('create-user-form');
+    const editUserForm = document.getElementById('edit-user-form');
+    const addFieldBtn = document.getElementById('add-field');
+    const addEditFieldBtn = document.getElementById('add-edit-field');
+    const createExtraFields = document.getElementById('create-extra-fields');
+    const editExtraFields = document.getElementById('edit-extra-fields');
+    const editUserModal = document.getElementById('edit-user-modal');
+    const viewUserModal = document.getElementById('view-user-modal');
+    const closeModalBtns = document.querySelectorAll('.close-modal');
+    const saveSettingsBtn = document.getElementById('save-settings');
+    const dbUrlInput = document.getElementById('db-url');
+    const dbTokenInput = document.getElementById('db-token');
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        
+        tab.classList.add('active');
+        document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+      });
+    });
+
+    // Close modals
+    closeModalBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.modal').forEach(modal => {
+          modal.style.display = 'none';
+        });
+      });
+    });
+
+    // Click outside modal to close
+    window.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal')) {
+        e.target.style.display = 'none';
+      }
+    });
+
+    // Add field to create form
+    addFieldBtn.addEventListener('click', () => {
+      const fieldRow = document.createElement('div');
+      fieldRow.className = 'field-row';
+      fieldRow.innerHTML = `
+        <input type="text" placeholder="Field name" class="field-name">
+        <input type="text" placeholder="Field value" class="field-value">
+        <button type="button" class="btn-danger btn-icon" onclick="this.parentElement.remove()">
+          <i class="fas fa-trash"></i>
+        </button>
+      `;
+      createExtraFields.appendChild(fieldRow);
+    });
+
+    // Add field to edit form
+    addEditFieldBtn.addEventListener('click', () => {
+      const fieldRow = document.createElement('div');
+      fieldRow.className = 'field-row';
+      fieldRow.innerHTML = `
+        <input type="text" placeholder="Field name" class="field-name">
+        <input type="text" placeholder="Field value" class="field-value">
+        <button type="button" class="btn-danger btn-icon" onclick="this.parentElement.remove()">
+          <i class="fas fa-trash"></i>
+        </button>
+      `;
+      editExtraFields.appendChild(fieldRow);
+    });
+
+    // Create user
+    createUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const name = document.getElementById('create-name').value.trim();
+      const email = document.getElementById('create-email').value.trim();
+      
+      if (!name || !email) {
+        showAlert('Please enter name and email', 'danger');
+        return;
+      }
+      
+      const user = { name, email };
+      
+      // Add extra fields
+      const fieldRows = createExtraFields.querySelectorAll('.field-row');
+      fieldRows.forEach(row => {
+        const key = row.querySelector('.field-name').value.trim();
+        const value = row.querySelector('.field-value').value.trim();
+        if (key) user[key] = value;
+      });
+      
+      try {
+        const id = generateUserId();
+        await db.set('users', id, user);
+        showAlert(`User created successfully with ID: ${id}`, 'success');
+        createUserForm.reset();
+        createExtraFields.innerHTML = '';
+        loadUsers();
+      } catch (error) {
+        showAlert(`Error creating user: ${error.message}`, 'danger');
+      }
+    });
+
+    // Edit user
+    editUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const id = document.getElementById('edit-user-id').value;
+      const name = document.getElementById('edit-name').value.trim();
+      const email = document.getElementById('edit-email').value.trim();
+      
+      if (!name || !email) {
+        showAlert('Please enter name and email', 'danger');
+        return;
+      }
+      
+      const user = { name, email };
+      
+      // Add extra fields
+      const fieldRows = editExtraFields.querySelectorAll('.field-row');
+      fieldRows.forEach(row => {
+        const key = row.querySelector('.field-name').value.trim();
+        const value = row.querySelector('.field-value').value.trim();
+        if (key) user[key] = value;
+      });
+      
+      try {
+        await db.set('users', id, user);
+        showAlert(`User updated successfully`, 'success');
+        editUserModal.style.display = 'none';
+        loadUsers();
+      } catch (error) {
+        showAlert(`Error updating user: ${error.message}`, 'danger');
+      }
+    });
+
+    // Save settings
+    saveSettingsBtn.addEventListener('click', () => {
+      db = new liekoDB({
+        databaseUrl: dbUrlInput.value,
+        token: dbTokenInput.value
+      });
+      showAlert('Settings saved successfully', 'success');
+      loadUsers();
+    });
+
+    // Search users
+    searchInput.addEventListener('input', () => {
+      const searchTerm = searchInput.value.toLowerCase();
+      const rows = usersTableBody.querySelectorAll('tr');
+      
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+      });
+    });
+
+    // Refresh users
+    refreshBtn.addEventListener('click', loadUsers);
+
+    // Load all users
+    async function loadUsers() {
+      try {
+        usersTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading users...</td></tr>';
+        const users = await db.get('users');
+        
+        if (!users || Object.keys(users).length === 0) {
+          usersTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No users found</td></tr>';
+          return;
+        }
+        
+        usersTableBody.innerHTML = '';
+        
+        Object.entries(users).forEach(([id, user]) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${id}</td>
+            <td>${user.name || '-'}</td>
+            <td>${user.email || '-'}</td>
+            <td class="actions">
+              <button class="btn-view btn-icon" onclick="viewUser('${id}')">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="btn-edit btn-icon" onclick="editUser('${id}')">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn-delete btn-icon" onclick="deleteUser('${id}')">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          `;
+          usersTableBody.appendChild(row);
+        });
+      } catch (error) {
+        usersTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Error loading users</td></tr>';
+        console.error('Error loading users:', error);
+      }
+    }
+
+    // View user details
+    async function viewUser(id) {
+      try {
+        const user = await db.get('users', id);
+        if (!user) {
+          showAlert('User not found', 'danger');
+          return;
+        }
+        
+        let details = `<p><strong>ID:</strong> ${id}</p>`;
+        details += `<p><strong>Name:</strong> ${user.name || '-'}</p>`;
+        details += `<p><strong>Email:</strong> ${user.email || '-'}</p>`;
+        
+        // Add extra fields
+        Object.keys(user).forEach(key => {
+          if (key !== 'name' && key !== 'email') {
+            details += `<p><strong>${key}:</strong> ${user[key] || '-'}</p>`;
+          }
+        });
+        
+        document.getElementById('user-details').innerHTML = details;
+        viewUserModal.style.display = 'flex';
+      } catch (error) {
+        showAlert(`Error loading user: ${error.message}`, 'danger');
+      }
+    }
+
+    // Edit user
+    async function editUser(id) {
+      try {
+        const user = await db.get('users', id);
+        if (!user) {
+          showAlert('User not found', 'danger');
+          return;
+        }
+        
+        document.getElementById('edit-user-id').value = id;
+        document.getElementById('edit-name').value = user.name || '';
+        document.getElementById('edit-email').value = user.email || '';
+        
+        // Clear existing extra fields
+        editExtraFields.innerHTML = '';
+        
+        // Add extra fields
+        Object.keys(user).forEach(key => {
+          if (key !== 'name' && key !== 'email') {
+            const fieldRow = document.createElement('div');
+            fieldRow.className = 'field-row';
+            fieldRow.innerHTML = `
+              <input type="text" placeholder="Field name" class="field-name" value="${key}">
+              <input type="text" placeholder="Field value" class="field-value" value="${user[key]}">
+              <button type="button" class="btn-danger btn-icon" onclick="this.parentElement.remove()">
+                <i class="fas fa-trash"></i>
+              </button>
+            `;
+            editExtraFields.appendChild(fieldRow);
+          }
+        });
+        
+        editUserModal.style.display = 'flex';
+      } catch (error) {
+        showAlert(`Error loading user: ${error.message}`, 'danger');
+      }
+    }
+
+    // Delete user
+    async function deleteUser(id) {
+      try {
+        const user = await db.get('users', id);
+        if (!user) {
+          showAlert('User not found', 'danger');
+          return;
+        }
+        
+        const userName = user.name || id;
+        if (!confirm(`Are you sure you want to delete user "${userName}"?`)) {
+          return;
+        }
+        
+        await db.delete('users', id);
+        showAlert(`User "${userName}" deleted successfully`, 'success');
+        loadUsers();
+      } catch (error) {
+        showAlert(`Error deleting user: ${error.message}`, 'danger');
+      }
+    }
+
+    // Helper functions
+    function generateUserId() {
+      const timestamp = Date.now().toString(36);
+      const randomPart = Math.random().toString(36).substring(2, 6);
+      return `user_${timestamp}_${randomPart}`;
+    }
+
+    function showAlert(message, type) {
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type}`;
+      alert.textContent = message;
+      
+      document.querySelector('.container').prepend(alert);
+      
+      setTimeout(() => {
+        alert.remove();
+      }, 5000);
+    }
+
+    // Initialize the dashboard
+    window.addEventListener('load', () => {
+      loadUsers();
+    });
+  </script>
+</body>
+
+</html>
