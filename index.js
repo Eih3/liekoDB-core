@@ -170,7 +170,10 @@ class LiekoDBCore {
         this.app.put('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateRecord.bind(this));
         this.app.delete('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.deleteRecord.bind(this));
         this.app.post('/api/collections/:collection/:id/increment', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.incrementField.bind(this));
+
+        this.app.get('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireReadAccess.bind(this), this.getProjectCollections.bind(this));
         this.app.put('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateProjectCollections.bind(this));
+
         this.app.get('/api/admin/users', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.getAdminUsers.bind(this));
         this.app.get('/api/admin/projects', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.getAllProjects.bind(this));
         this.app.delete('/api/admin/users/:userId', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.deleteUser.bind(this));
@@ -386,6 +389,14 @@ class LiekoDBCore {
             next();
         } catch (error) {
             res.status(error.status || 500).json({ error: error.message || 'Authentication failed', status: error.status || 500 });
+        }
+    }
+
+    requireReadAccess(req, res, next) {
+        if (!['read', 'write', 'full'].includes(req.permissions)) {
+            res.status(403).json({ error: 'Read access required', status: 403 });
+        } else {
+            next();
         }
     }
 
@@ -877,6 +888,36 @@ class LiekoDBCore {
         } catch (error) {
             res.status(error.status || 500).json({
                 error: error.message || 'Failed to increment field',
+                status: error.status || 500
+            });
+        }
+    }
+
+    async getProjectCollections(req, res) {
+        try {
+            const { projectId } = req.params;
+            const data = await this.readManageDB();
+            const project = data.projects.find(p => p.id === projectId);
+
+            if (!project) {
+                return res.status(404).json({ error: 'Project not found', status: 404 });
+            }
+
+            // Return the collections array, or an empty array if none exist
+            const collections = project.collections || [];
+            res.json({
+                projectId,
+                collections: collections.map(c => ({
+                    name: c.name,
+                    createdAt: c.createdAt || null,
+                    updatedAt: c.updatedAt || null
+                })),
+                totalCount: collections.length
+            });
+        } catch (error) {
+            console.error(`Failed to get collections for project ${projectId}:`, error);
+            res.status(error.status || 500).json({
+                error: error.message || 'Failed to retrieve collections',
                 status: error.status || 500
             });
         }

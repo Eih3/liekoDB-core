@@ -224,8 +224,7 @@
                 await db.ensureCollection('testCollection');
                 const records = generateRandomRecords(20);
                 const result = await db.batchSet('testCollection', records);
-                logOutput(`Command: db.batchSet('testCollection', [20 random records])\nResult: `);
-                //logOutput(`Command: db.batchSet('testCollection', [20 random records])\nResult: ${JSON.stringify(result, null, 2)}`);
+                logOutput(`Command: db.batchSet('testCollection', [20 random records])\nResult: ${JSON.stringify(result, null, 2)}`);
             } catch (err) {
                 logOutput(`Error setting up collection: ${err.message}`);
             }
