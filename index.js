@@ -886,9 +886,11 @@ class LiekoDBCore {
         try {
             const { projectId } = req.params;
             const { collections } = req.body;
+            console.log(`Updating collections for project ${projectId}:`, collections);
             const data = await this.readManageDB();
             const project = data.projects.find(p => p.id === projectId);
             if (!project) {
+                console.log(`Project ${projectId} not found`);
                 res.status(404).json({ error: 'Project not found', status: 404 });
             } else {
                 if (collections && Array.isArray(collections)) {
@@ -898,11 +900,13 @@ class LiekoDBCore {
                     );
                     project.collections = [...existingCollections, ...newCollections];
                     project.updatedAt = new Date().toISOString();
+                    console.log(`New collections added:`, newCollections);
                     await this.writeManageDB(data);
                 }
                 res.json({ success: true, collections: project.collections });
             }
         } catch (error) {
+            console.error(`Failed to update collections for project ${projectId}:`, error);
             res.status(error.status || 500).json({ error: error.message || 'Failed to update project collections', status: error.status || 500 });
         }
     }
