@@ -225,11 +225,36 @@
         let authToken = null;
         let isRegisterMode = false;
 
+        function escapeHtml(unsafe) {
+            if (unsafe == null) return '';
+            return String(unsafe)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function hasForbiddenChars(inputValue) {
+            const forbiddenPattern = /[<>"'`/\\();{}]/g;
+            return forbiddenPattern.test(inputValue);
+        }
+
         document.getElementById('auth-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const email = document.getElementById('email').value;
+
+            if (hasForbiddenChars(username)) {
+                return showMessage('auth-message', 'Forbidden characters in username', 'error')
+            }
+            if (hasForbiddenChars(password)) {
+                return showMessage('auth-message', 'Forbidden characters in password', 'error')
+            }
+            if (hasForbiddenChars(email)) {
+                return showMessage('auth-message', 'Forbidden characters in email', 'error')
+            }
             try {
                 const endpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
                 const body = isRegisterMode ? { username, email, password } : { username, password };
@@ -327,8 +352,8 @@
             }
             container.innerHTML = projects.map(project => `
                         <div class="project-card">
-                            <h4>${project.name}</h4>
-                            <p>${project.description}</p>
+                            <h4>${escapeHtml(project.name)}</h4>
+                            <p>${escapeHtml(project.description)}</p>
                             <p><strong>Project ID:</strong> <span class="token">${project.id}</span></p>
                             <p><strong>Created:</strong> ${new Date(project.createdAt).toLocaleDateString()}</p>
                             <div style="margin-top: 10px;">
@@ -358,6 +383,15 @@
                 showMessage('create-project-message', 'Project name is required', 'error');
                 return;
             }
+
+            if (hasForbiddenChars(name)) {
+                return showMessage('create-project-message', 'Forbidden characters in the name', 'error')
+            }
+
+            if (hasForbiddenChars(description)) {
+                return showMessage('create-project-message', 'Forbidden characters in the description', 'error')
+            }
+
             try {
                 const response = await fetch('/api/user/projects', {
                     method: 'POST',
@@ -458,7 +492,7 @@
                             <tbody>
                                 ${tokens.map(token => `
                                     <tr>
-                                        <td>${token.name}</td>
+                                        <td>${escapeHtml(token.name)}</td>
                                         <td><span class="token">${token.permissions}</span></td>
                                         <td>${token.active ? 'Active' : 'Inactive'}</td>
                                         <td>${new Date(token.createdAt).toLocaleDateString()}</td>
@@ -490,6 +524,11 @@
                 showMessage(`create-token-message-${projectId}`, 'Token name is required', 'error');
                 return;
             }
+
+            if (hasForbiddenChars(name)) {
+                return showMessage(`create-token-message-${projectId}`, 'Forbidden characters Token name', 'error')
+            }
+
             try {
                 const response = await fetch(`/api/projects/${projectId}/tokens`, {
                     method: 'POST',
