@@ -1,7 +1,10 @@
 node_modules/
 .DS_Store
 *.log
-npm/
+npm/.npmignore
+npm/HOWTO.md
+npm/package.json
+npm/README.md
 storage/
 documentation.md
 package-lock.json
