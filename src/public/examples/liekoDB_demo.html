@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LiekoDB Command Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="http://gnode01.pyts-cloud.fr:9700/liekoDB.js"></script> <!-- Adjust path to your liekoDB-1.1.js file -->
+    <script src="http://gnode01.pyts-cloud.fr:9700/liekoDB.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -165,7 +165,7 @@
 
     <script>
         const db = new liekoDB({
-            databaseUrl: 'http://gnode01.pyts-cloud.fr:9700',
+            databaseUrl: 'http://gnode01.pyts-cloud.fr:9700:6050',
             token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde',
             debug: true
         });
@@ -221,7 +221,6 @@
         // Setup collection with random data
         async function setupCollection() {
             try {
-                await db.ensureCollection('testCollection');
                 const records = generateRandomRecords(20);
                 const result = await db.batchSet('testCollection', records);
                 logOutput(`Command: db.batchSet('testCollection', [20 random records])\nResult: ${JSON.stringify(result, null, 2)}`);
@@ -286,7 +285,6 @@
         // Count
         async function runCount() {
             try {
-                await db.ensureCollection('testCollection');
                 const filterInput = document.getElementById('countFilter').value;
                 let filter = null;
                 if (filterInput) {

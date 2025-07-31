@@ -100,23 +100,6 @@ class LiekoDBCore {
     }
 
     setupRoutes() {
-        this.app.get('/api/debug/users', async (req, res) => {
-            try {
-                const users = await this.getUsersData();
-                res.json({
-                    userCount: users.length,
-                    users: users.map(u => ({
-                        username: u.username,
-                        email: u.email,
-                        role: u.role,
-                        hasPassword: !!u.password
-                    }))
-                });
-            } catch (error) {
-                res.status(500).json({ error: 'Failed to fetch users', status: 500 });
-            }
-        });
-
         this.app.get('/api/health', async (req, res) => {
             res.json({
                 status: 'healthy',
@@ -130,35 +113,59 @@ class LiekoDBCore {
             res.json({ status: 'ok', timestamp: new Date().toISOString() });
         });
 
+        /**
+         * AUTH ROUTES
+         */
         this.app.post('/api/auth/login', this.handleLogin.bind(this));
         this.app.post('/api/auth/register', this.handleRegister.bind(this));
 
-        this.app.get('/api/token/validate', this.validateProjectToken.bind(this));
+        /**
+         * ADMIN ROUTES
+         */
+        this.app.get('/api/admin/users', this.authenticateUser.bind(this), this.requireAdminAccess.bind(this), this.getAdminUsers.bind(this));
+        this.app.get('/api/admin/projects', this.authenticateUser.bind(this), this.requireAdminAccess.bind(this), this.getAllProjects.bind(this));
+        this.app.delete('/api/admin/users/:userId', this.authenticateUser.bind(this), this.requireAdminAccess.bind(this), this.deleteUser.bind(this));
+        this.app.put('/api/admin/users/:userId/role', this.authenticateUser.bind(this), this.requireAdminAccess.bind(this), this.updateUserRole.bind(this));
+        this.app.delete('/api/admin/projects/:projectId', this.authenticateUser.bind(this), this.requireAdminAccess.bind(this), this.deleteProjectAdmin.bind(this));
 
+        this.app.get('/api/user/projects', this.authenticateUser.bind(this), this.getUserProjects.bind(this));
+        this.app.post('/api/user/projects', this.authenticateUser.bind(this), this.createProject.bind(this));
+        this.app.delete('/api/user/projects/:projectId', this.authenticateUser.bind(this), this.deleteProject.bind(this));
+
+        /**
+         * Project Details ROUTES
+         */
+        this.app.get('/api/projects/:projectId', this.authenticateProjectToken.bind(this), this.requireReadAccess.bind(this), this.getProjectDetails.bind(this));
+
+        /**
+         * Projects Tokens ROUTES
+         */
+        this.app.get('/api/token/validate', this.validateProjectToken.bind(this));
         this.app.get('/api/projects/:projectId/tokens', this.authenticateUser.bind(this), this.getProjectTokens.bind(this));
         this.app.post('/api/projects/:projectId/tokens', this.authenticateUser.bind(this), this.createProjectToken.bind(this));
         this.app.delete('/api/projects/:projectId/tokens/:tokenId', this.authenticateUser.bind(this), this.deleteProjectToken.bind(this));
-        this.app.get('/api/projects/:projectId', this.authenticateProjectToken.bind(this), async (req, res) => {
-            try {
-                const { projectId } = req.params;
-                const data = await this.readManageDB();
-                const project = data.projects.find(p => p.id === projectId);
-                if (!project) {
-                    return res.status(404).json({ error: 'Project not found', status: 404 });
-                }
-                res.json({ id: project.id, name: project.name, description: project.description });
-            } catch (error) {
-                res.status(error.status || 500).json({ error: error.message || 'Internal server error', status: error.status || 500 });
-            }
-        });
 
+        /**
+         * Projects Collections ROUTES
+         */
+        this.app.get('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireReadAccess.bind(this), this.getProjectCollections.bind(this));
+        this.app.put('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateProjectCollections.bind(this));
+        this.app.delete('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.deleteProjectCollections.bind(this));
+
+        /**
+         * Collections ROUTES
+         */
         this.app.head('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.checkCollection.bind(this));
         this.app.get('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.getCollection.bind(this));
-        this.app.post('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.createRecord.bind(this));
+        this.app.post('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.createCollection.bind(this));
         this.app.delete('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.clearCollection.bind(this));
-        this.app.get('/api/collections/:collection/search', this.authenticateProjectToken.bind(this), this.searchCollection.bind(this));
-        this.app.get('/api/collections/:collection/count', this.authenticateProjectToken.bind(this), this.countCollection.bind(this));
-        this.app.get('/api/collections/:collection/find-one', this.authenticateProjectToken.bind(this), this.findOne.bind(this));
+
+        /**
+         * Collections Actions ROUTES
+         */
+        this.app.get('/api/collections/:collection/search', this.authenticateProjectToken.bind(this), this.searchRecords.bind(this));
+        this.app.get('/api/collections/:collection/count', this.authenticateProjectToken.bind(this), this.countRecords.bind(this));
+        this.app.get('/api/collections/:collection/find-one', this.authenticateProjectToken.bind(this), this.findOneRecord.bind(this));
         this.app.get('/api/collections/:collection/keys', this.authenticateProjectToken.bind(this), this.getKeys.bind(this));
         this.app.get('/api/collections/:collection/entries', this.authenticateProjectToken.bind(this), this.getEntries.bind(this));
         this.app.get('/api/collections/:collection/size', this.authenticateProjectToken.bind(this), this.getSize.bind(this));
@@ -166,25 +173,14 @@ class LiekoDBCore {
         this.app.post('/api/collections/:collection/batch-get', this.authenticateProjectToken.bind(this), this.batchGet.bind(this));
         this.app.post('/api/collections/:collection/batch-delete', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.batchDelete.bind(this));
         this.app.post('/api/collections/:collection/batch-update', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.batchUpdate.bind(this));
-        this.app.get('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.getRecord.bind(this));
-        this.app.put('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateRecord.bind(this));
+        this.app.get('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.getCollectionRecord.bind(this));
+        this.app.put('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateCollection.bind(this));
         this.app.delete('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.deleteRecord.bind(this));
         this.app.post('/api/collections/:collection/:id/increment', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.incrementField.bind(this));
+        this.app.post('/api/collections/:collection/:id/decrement', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.decrementField.bind(this));
 
-        this.app.get('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireReadAccess.bind(this), this.getProjectCollections.bind(this));
-        this.app.put('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateProjectCollections.bind(this));
-
-        this.app.get('/api/admin/users', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.getAdminUsers.bind(this));
-        this.app.get('/api/admin/projects', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.getAllProjects.bind(this));
-        this.app.delete('/api/admin/users/:userId', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.deleteUser.bind(this));
-        this.app.put('/api/admin/users/:userId/role', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.updateUserRole.bind(this));
-        this.app.delete('/api/admin/projects/:projectId', this.authenticateUser.bind(this), this.requireAdmin.bind(this), this.deleteProjectAdmin.bind(this));
-        this.app.get('/api/user/projects', this.authenticateUser.bind(this), this.getUserProjects.bind(this));
-        this.app.post('/api/user/projects', this.authenticateUser.bind(this), this.createProject.bind(this));
-        this.app.delete('/api/user/projects/:projectId', this.authenticateUser.bind(this), this.deleteProject.bind(this));
-
-        //this.app.get(`/`, (req, res) => { // Replace if you want to open panel inscription to public
-        this.app.get(`/${PANEL_ROUTE}`, (req, res) => {
+        this.app.get(`/`, (req, res) => { // Replace if you want to open panel inscription to public
+        //this.app.get(`/${PANEL_ROUTE}`, (req, res) => {
             res.render('panel');
         });
 
@@ -416,7 +412,7 @@ class LiekoDBCore {
         }
     }
 
-    requireAdmin(req, res, next) {
+    requireAdminAccess(req, res, next) {
         if (req.user.role !== 'admin') {
             res.status(403).json({ error: 'Admin access required', status: 403 });
         } else {
@@ -445,9 +441,15 @@ class LiekoDBCore {
                 error.status = 404;
                 throw error;
             }
-            console.log('Valid token found:', tokenData);
+            //console.log('Valid token found:', tokenData);
             res.json({
-                projectId: tokenData.projectId,
+                project: {
+                    id: project.id,
+                    name: project.name,
+                    createdAt: project.createdAt,
+                    updateAt: project.updateAt
+                },
+                name: tokenData.name,
                 permissions: tokenData.permissions,
                 collections: project.collections || []
             });
@@ -460,9 +462,11 @@ class LiekoDBCore {
         try {
             const { collection } = req.params;
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
+            console.log(collectionPath)
             await fs.access(collectionPath);
             res.status(200).send();
         } catch (error) {
+            console.log(error)
             if (error.code === 'ENOENT') {
                 res.status(404).json({ error: 'Collection not found', status: 404 });
             } else {
@@ -502,7 +506,7 @@ class LiekoDBCore {
         }
     }
 
-    async getRecord(req, res) {
+    async getCollectionRecord(req, res) {
         try {
             const { collection, id } = req.params;
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
@@ -517,7 +521,7 @@ class LiekoDBCore {
         }
     }
 
-    async createRecord(req, res) {
+    async createCollection(req, res) {
         try {
             const { collection } = req.params;
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
@@ -534,17 +538,17 @@ class LiekoDBCore {
             await this.writeJsonFile(collectionPath, data);
             res.status(201).json(record);
         } catch (error) {
-            res.status(500).json({ error: 'Failed to create record', status: 500 });
+            res.status(500).json({ error: 'Failed to create collection', status: 500 });
         }
     }
 
-    async updateRecord(req, res) {
+    async updateCollection(req, res) {
         try {
             const { collection, id } = req.params;
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
             let data = await this.readJsonFile(collectionPath) || {};
             if (!data[id]) {
-                res.status(404).json({ error: 'Record not found', status: 404 });
+                res.status(404).json({ error: `Collection '${collection}' not found`, status: 404 });
             } else {
                 const record = {
                     ...data[id],
@@ -558,7 +562,7 @@ class LiekoDBCore {
                 res.json(record);
             }
         } catch (error) {
-            res.status(error.status || 500).json({ error: error.message || 'Failed to update record', status: error.status || 500 });
+            res.status(error.status || 500).json({ error: error.message || 'Failed to update collection', status: error.status || 500 });
         }
     }
 
@@ -590,7 +594,7 @@ class LiekoDBCore {
         }
     }
 
-    async searchCollection(req, res) {
+    async searchRecords(req, res) {
         try {
             const { collection } = req.params;
             const { term, fields } = req.query;
@@ -628,7 +632,7 @@ class LiekoDBCore {
         }
     }
 
-    async countCollection(req, res) {
+    async countRecords(req, res) {
         try {
             const { collection } = req.params;
             console.log(`Counting records in collection: ${collection}`);
@@ -660,7 +664,7 @@ class LiekoDBCore {
         }
     }
 
-    async findOne(req, res) {
+    async findOneRecord(req, res) {
         try {
             const { collection } = req.params;
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
@@ -893,6 +897,58 @@ class LiekoDBCore {
         }
     }
 
+    async decrementField(req, res) {
+        try {
+            const { collection, id } = req.params;
+            const { field, amount = 1 } = req.body;
+            const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
+            let data = await this.readJsonFile(collectionPath) || {};
+
+            if (!data[id]) {
+                res.status(404).json({ error: 'Record not found', status: 404 });
+                return;
+            }
+
+            // Handle nested fields (field paths with dots)
+            const fieldParts = field.split('.');
+            let current = data[id];
+
+            for (let i = 0; i < fieldParts.length - 1; i++) {
+                const part = fieldParts[i];
+                if (!current[part]) {
+                    current[part] = {};
+                }
+                current = current[part];
+            }
+
+            const lastPart = fieldParts[fieldParts.length - 1];
+            current[lastPart] = (current[lastPart] || 0) - amount;
+            data[id].updatedAt = new Date().toISOString();
+
+            await this.writeJsonFile(collectionPath, data);
+            res.json(data[id]);
+        } catch (error) {
+            res.status(error.status || 500).json({
+                error: error.message || 'Failed to decrement field',
+                status: error.status || 500
+            });
+        }
+    }
+
+    async getProjectDetails(req, res) {
+        try {
+            const { projectId } = req.params;
+            const data = await this.readManageDB();
+            const project = data.projects.find(p => p.id === projectId);
+            if (!project) {
+                return res.status(404).json({ error: 'Project not found', status: 404 });
+            }
+            res.json({ id: project.id, name: project.name, description: project.description });
+        } catch (error) {
+            res.status(error.status || 500).json({ error: error.message || 'Internal server error', status: error.status || 500 });
+        }
+    }
+
     async getProjectCollections(req, res) {
         try {
             const { projectId } = req.params;
@@ -927,7 +983,7 @@ class LiekoDBCore {
         try {
             const { projectId } = req.params;
             const { collections } = req.body;
-            console.log(`Updating collections for project ${projectId}:`, collections);
+            //console.log(`Updating collections for project ${projectId}:`, collections);
             const data = await this.readManageDB();
             const project = data.projects.find(p => p.id === projectId);
             if (!project) {
@@ -949,6 +1005,47 @@ class LiekoDBCore {
         } catch (error) {
             console.error(`Failed to update collections for project ${projectId}:`, error);
             res.status(error.status || 500).json({ error: error.message || 'Failed to update project collections', status: error.status || 500 });
+        }
+    }
+
+    async deleteProjectCollections(req, res) {
+        try {
+            const { projectId } = req.params;
+            const { collections } = req.body;
+            console.log(`Deleting collections from project ${projectId}:`, collections);
+            const data = await this.readManageDB();
+            const project = data.projects.find(p => p.id === projectId);
+
+            if (!project) {
+                console.log(`Project ${projectId} not found`);
+                return res.status(404).json({ error: 'Project not found', status: 404 });
+            }
+
+            if (!Array.isArray(collections) || collections.length === 0) {
+                return res.status(400).json({ error: 'No collections provided to delete', status: 400 });
+            }
+
+            const originalLength = (project.collections || []).length;
+
+            project.collections = (project.collections || []).filter(
+                c => !collections.some(toDelete => toDelete.name === c.name)
+            );
+
+            if (project.collections.length === originalLength) {
+                console.log(`No matching collections found to delete`);
+            } else {
+                project.updatedAt = new Date().toISOString();
+                await this.writeManageDB(data);
+                console.log(`Deleted collections from project ${projectId}`);
+            }
+
+            res.json({ success: true, collections: project.collections });
+        } catch (error) {
+            console.error(`Failed to delete collections for project ${req.params.projectId}:`, error);
+            res.status(error.status || 500).json({
+                error: error.message || 'Failed to delete project collections',
+                status: error.status || 500
+            });
         }
     }
 
