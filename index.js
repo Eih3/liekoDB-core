@@ -10,7 +10,8 @@ const rateLimit = require('express-rate-limit');
 
 const HOST = process.env.HOST || 'http://localhost'
 const PORT = process.env.PORT || 6050;
-const PANEL_ROUTE = crypto.randomBytes(4).toString('hex')
+const HIDE_PANEL = process.env.HIDE_PANEL === 'true';
+const PANEL_ROUTE =HIDE_PANEL ? (process.env.PANEL_ROUTE || crypto.randomBytes(4).toString('hex')) : '';
 
 class LiekoDBCore {
     constructor() {
@@ -18,7 +19,7 @@ class LiekoDBCore {
         this.storageDir = path.join(__dirname, 'storage');
         this.manageDBFile = path.join(this.storageDir, 'manageDB.json');
         this.projectsDir = path.join(this.storageDir, 'projects');
-        this.jwtSecret = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+        this.jwtSecret = process.env.JWT_SECRET || 'secret';
         this.writeLocks = new Map();
         this.initialize();
     }
@@ -179,8 +180,8 @@ class LiekoDBCore {
         this.app.post('/api/collections/:collection/:id/increment', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.incrementField.bind(this));
         this.app.post('/api/collections/:collection/:id/decrement', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.decrementField.bind(this));
 
-        this.app.get(`/`, (req, res) => { // Replace if you want to open panel inscription to public
-        //this.app.get(`/${PANEL_ROUTE}`, (req, res) => {
+
+        this.app.get(`/${PANEL_ROUTE}`, (req, res) => {
             res.render('panel');
         });
 
@@ -635,7 +636,6 @@ class LiekoDBCore {
     async countRecords(req, res) {
         try {
             const { collection } = req.params;
-            console.log(`Counting records in collection: ${collection}`);
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
             let data;
             try {
@@ -983,7 +983,6 @@ class LiekoDBCore {
         try {
             const { projectId } = req.params;
             const { collections } = req.body;
-            //console.log(`Updating collections for project ${projectId}:`, collections);
             const data = await this.readManageDB();
             const project = data.projects.find(p => p.id === projectId);
             if (!project) {
@@ -1012,7 +1011,6 @@ class LiekoDBCore {
         try {
             const { projectId } = req.params;
             const { collections } = req.body;
-            console.log(`Deleting collections from project ${projectId}:`, collections);
             const data = await this.readManageDB();
             const project = data.projects.find(p => p.id === projectId);
 
