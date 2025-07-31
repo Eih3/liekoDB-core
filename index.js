@@ -11,7 +11,7 @@ const rateLimit = require('express-rate-limit');
 const HOST = process.env.HOST || 'http://localhost'
 const PORT = process.env.PORT || 6050;
 const HIDE_PANEL = process.env.HIDE_PANEL === 'true';
-const PANEL_ROUTE =HIDE_PANEL ? (process.env.PANEL_ROUTE || crypto.randomBytes(4).toString('hex')) : '';
+const PANEL_ROUTE = HIDE_PANEL ? (process.env.PANEL_ROUTE || crypto.randomBytes(4).toString('hex')) : '';
 
 class LiekoDBCore {
     constructor() {
@@ -101,6 +101,10 @@ class LiekoDBCore {
     }
 
     setupRoutes() {
+
+        /**
+         * Utils ROUTES
+         */
         this.app.get('/api/health', async (req, res) => {
             res.json({
                 status: 'healthy',
@@ -114,11 +118,13 @@ class LiekoDBCore {
             res.json({ status: 'ok', timestamp: new Date().toISOString() });
         });
 
+
         /**
          * AUTH ROUTES
          */
         this.app.post('/api/auth/login', this.handleLogin.bind(this));
         this.app.post('/api/auth/register', this.handleRegister.bind(this));
+
 
         /**
          * ADMIN ROUTES
@@ -133,10 +139,12 @@ class LiekoDBCore {
         this.app.post('/api/user/projects', this.authenticateUser.bind(this), this.createProject.bind(this));
         this.app.delete('/api/user/projects/:projectId', this.authenticateUser.bind(this), this.deleteProject.bind(this));
 
+
         /**
          * Project Details ROUTES
          */
         this.app.get('/api/projects/:projectId', this.authenticateProjectToken.bind(this), this.requireReadAccess.bind(this), this.getProjectDetails.bind(this));
+
 
         /**
          * Projects Tokens ROUTES
@@ -146,6 +154,7 @@ class LiekoDBCore {
         this.app.post('/api/projects/:projectId/tokens', this.authenticateUser.bind(this), this.createProjectToken.bind(this));
         this.app.delete('/api/projects/:projectId/tokens/:tokenId', this.authenticateUser.bind(this), this.deleteProjectToken.bind(this));
 
+
         /**
          * Projects Collections ROUTES
          */
@@ -153,13 +162,15 @@ class LiekoDBCore {
         this.app.put('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateProjectCollections.bind(this));
         this.app.delete('/api/projects/:projectId/collections', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.deleteProjectCollections.bind(this));
 
+
         /**
          * Collections ROUTES
          */
         this.app.head('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.checkCollection.bind(this));
         this.app.get('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.getCollection.bind(this));
         this.app.post('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.createCollection.bind(this));
-        this.app.delete('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.clearCollection.bind(this));
+        this.app.delete('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.deleteCollection.bind(this));
+
 
         /**
          * Collections Actions ROUTES
@@ -174,12 +185,11 @@ class LiekoDBCore {
         this.app.post('/api/collections/:collection/batch-get', this.authenticateProjectToken.bind(this), this.batchGet.bind(this));
         this.app.post('/api/collections/:collection/batch-delete', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.batchDelete.bind(this));
         this.app.post('/api/collections/:collection/batch-update', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.batchUpdate.bind(this));
-        this.app.get('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.getCollectionRecord.bind(this));
-        this.app.put('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateCollection.bind(this));
+        this.app.get('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.getRecord.bind(this));
+        this.app.put('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.updateRecord.bind(this));
         this.app.delete('/api/collections/:collection/:id', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.deleteRecord.bind(this));
-        this.app.post('/api/collections/:collection/:id/increment', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.incrementField.bind(this));
-        this.app.post('/api/collections/:collection/:id/decrement', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.decrementField.bind(this));
-
+        this.app.post('/api/collections/:collection/:id/increment', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.incrementRecordField.bind(this));
+        this.app.post('/api/collections/:collection/:id/decrement', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.decrementRecordField.bind(this));
 
         this.app.get(`/${PANEL_ROUTE}`, (req, res) => {
             res.render('panel');
@@ -197,7 +207,6 @@ class LiekoDBCore {
             }
         });
 
-        // General error handling middleware
         this.app.use((error, req, res, next) => {
             console.error('Server error:', error);
             if (req.path.startsWith('/api/')) {
@@ -211,6 +220,10 @@ class LiekoDBCore {
         });
     }
 
+
+    /**
+     * JSON FILES FUNCTIONS
+     */
     async readJsonFile(filePath) {
         try {
             const data = await fs.readFile(filePath, 'utf8');
@@ -250,7 +263,7 @@ class LiekoDBCore {
 
     async writeManageDB(data) {
         await this.writeJsonFile(this.manageDBFile, data);
-    }
+    }    
 
     async getUsersData() {
         const data = await this.readManageDB();
@@ -348,6 +361,11 @@ class LiekoDBCore {
         }
     }
 
+
+    /**
+     * AUTH MIDDLEWARES
+     */
+
     async authenticateUser(req, res, next) {
         try {
             const token = req.headers.authorization?.replace('Bearer ', '');
@@ -388,6 +406,11 @@ class LiekoDBCore {
             res.status(error.status || 500).json({ error: error.message || 'Authentication failed', status: error.status || 500 });
         }
     }
+
+
+    /**
+     * Tokens Permissions MIDDLEWARES
+     */
 
     requireReadAccess(req, res, next) {
         if (!['read', 'write', 'full'].includes(req.permissions)) {
@@ -459,6 +482,11 @@ class LiekoDBCore {
         }
     }
 
+
+    /**
+     * Collections FUNCTIONS
+     */
+
     async checkCollection(req, res) {
         try {
             const { collection } = req.params;
@@ -506,22 +534,7 @@ class LiekoDBCore {
             res.status(500).json({ error: 'Failed to get collection', status: 500 });
         }
     }
-
-    async getCollectionRecord(req, res) {
-        try {
-            const { collection, id } = req.params;
-            const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
-            const data = await this.readJsonFile(collectionPath);
-            if (!data || !data[id]) {
-                res.status(404).json({ error: `No Record found, ${collection} with ID ${id}`, status: 404 });
-            } else {
-                res.json(data[id]);
-            }
-        } catch (error) {
-            res.status(error.status || 500).json({ error: error.message || 'Failed to get record', status: error.status || 500 });
-        }
-    }
-
+    
     async createCollection(req, res) {
         try {
             const { collection } = req.params;
@@ -543,7 +556,38 @@ class LiekoDBCore {
         }
     }
 
-    async updateCollection(req, res) {
+    async deleteCollection(req, res) {
+        try {
+            const { collection } = req.params;
+            const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
+            await this.writeJsonFile(collectionPath, {});
+            res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to clear collection', status: 500 });
+        }
+    }
+
+
+    /**
+     * Records FUNCTIONS
+     */
+
+    async getRecord(req, res) {
+        try {
+            const { collection, id } = req.params;
+            const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
+            const data = await this.readJsonFile(collectionPath);
+            if (!data || !data[id]) {
+                res.status(404).json({ error: `No Record found, ${collection} with ID ${id}`, status: 404 });
+            } else {
+                res.json(data[id]);
+            }
+        } catch (error) {
+            res.status(error.status || 500).json({ error: error.message || 'Failed to get record', status: error.status || 500 });
+        }
+    }
+
+    async updateRecord(req, res) {
         try {
             const { collection, id } = req.params;
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
@@ -581,17 +625,6 @@ class LiekoDBCore {
             }
         } catch (error) {
             res.status(500).json({ error: 'Failed to delete record', status: 500 });
-        }
-    }
-
-    async clearCollection(req, res) {
-        try {
-            const { collection } = req.params;
-            const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
-            await this.writeJsonFile(collectionPath, {});
-            res.status(204).send();
-        } catch (error) {
-            res.status(500).json({ error: 'Failed to clear collection', status: 500 });
         }
     }
 
@@ -859,7 +892,7 @@ class LiekoDBCore {
         }
     }
 
-    async incrementField(req, res) {
+    async incrementRecordField(req, res) {
         try {
             const { collection, id } = req.params;
             const { field, amount = 1 } = req.body;
@@ -897,7 +930,7 @@ class LiekoDBCore {
         }
     }
 
-    async decrementField(req, res) {
+    async decrementRecordField(req, res) {
         try {
             const { collection, id } = req.params;
             const { field, amount = 1 } = req.body;
@@ -935,6 +968,10 @@ class LiekoDBCore {
         }
     }
 
+
+    /**
+     * Gobals FUNCTIONS
+     */
     async getProjectDetails(req, res) {
         try {
             const { projectId } = req.params;

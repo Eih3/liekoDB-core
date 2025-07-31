@@ -75,7 +75,7 @@ class liekoDB extends EventEmitter {
         this._collectionCache = new Map();
         this._headers = {
             'Content-Type': 'application/json',
-            'User-Agent': 'liekoDB-Client/2.2.0',
+            'User-Agent': 'liekoDB-Client/1.0.0',
             'Authorization': `Bearer ${this.token}`
         };
         this._objectBasedPatterns = new Set(['users', 'profiles', 'accounts', 'settings']);
@@ -362,7 +362,16 @@ class liekoDB extends EventEmitter {
     }
 
     async decrement(collectionName, id, field, amount = 1) {
-        return this.increment(collectionName, id, field, -amount);
+        try {
+            this.emit('operation:start', { type: 'decrement', collection: collectionName, id });
+            const result = await this._request('POST', `/api/collections/${collectionName}/${id}/decrement`, { field, amount });
+            this.emit('operation:success', { type: 'decrement', collection: collectionName, id, result });
+            this.emit('record:updated', { collection: collectionName, id, data: result });
+            return result;
+        } catch (error) {
+            this.emit('operation:error', { type: 'decrement', collection: collectionName, id, error });
+            throw this._handleError(error, `Failed to decrement in ${collectionName}`);
+        }
     }
 
     async batchSet(collectionName, records, concurrency = 5) {
@@ -479,24 +488,6 @@ class liekoDB extends EventEmitter {
         }
     }
 
-    async iterator(collectionName, options = {}) {
-        const perPage = options.perPage || 100;
-        let page = 1;
-        const self = this;
-        return {
-            async *[Symbol.asyncIterator]() {
-                while (true) {
-                    const result = await self.paginate(collectionName, page, perPage, options);
-                    if (!result.data || result.data.length === 0) break;
-                    for (const record of result.data) {
-                        yield record;
-                    }
-                    page++;
-                }
-            }
-        };
-    }
-
     async health() {
         try {
             const result = await this._request('GET', '/api/health');
@@ -521,58 +512,6 @@ class liekoDB extends EventEmitter {
         }
     }
 
-    // Project Management Methods
-    async getProjectInfo() {
-        try {
-            if (!this.projectId) {
-                throw new Error('Project ID not available');
-            }
-            const response = await this._request('GET', `/api/projects/${this.projectId}`);
-            return response;
-        } catch (error) {
-            throw this._handleError(error, 'Failed to get project info');
-        }
-    }
-
-    async getProjectTokens() {
-        try {
-            if (!this.projectId) {
-                throw new Error('Project ID not available');
-            }
-            const response = await this._request('GET', `/api/projects/${this.projectId}/tokens`);
-            return response.tokens;
-        } catch (error) {
-            throw this._handleError(error, 'Failed to get project tokens');
-        }
-    }
-
-    async createProjectToken(name, permissions = 'full') {
-        try {
-            if (!this.projectId) {
-                throw new Error('Project ID not available');
-            }
-            const response = await this._request('POST', `/api/projects/${this.projectId}/tokens`, {
-                name,
-                permissions
-            });
-            return response;
-        } catch (error) {
-            throw this._handleError(error, 'Failed to create project token');
-        }
-    }
-
-    async deleteProjectToken(tokenId) {
-        try {
-            if (!this.projectId) {
-                throw new Error('Project ID not available');
-            }
-            await this._request('DELETE', `/api/projects/${this.projectId}/tokens/${tokenId}`);
-            return true;
-        } catch (error) {
-            throw this._handleError(error, 'Failed to delete project token');
-        }
-    }
-
     getConnectionInfo() {
         return {
             URI: this.databaseUrl,
@@ -584,12 +523,6 @@ class liekoDB extends EventEmitter {
             retryAttempts: this.retryAttempts,
             retryDelay: this.retryDelay
         };
-    }
-
-    async disconnect() {
-        this._isReady = false;
-        this._collectionCache.clear();
-        this.emit('disconnected');
     }
 
     _buildQueryParams(options) {
