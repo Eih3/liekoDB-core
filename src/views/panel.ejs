@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiekoDB Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-form {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 50px auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .dashboard {
+            display: none;
+        }
+
+        .tabs {
+            display: flex;
+            /*margin-bottom: 20px;*/
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #232955;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .tab.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .tab-content {
+            background: white;
+            padding: 20px;
+            border-radius: 0 8px 8px 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .project-card {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+
+        .token {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f8f9fa;
+        }
+
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: #28a745;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <div id="auth-section">
+            <div class="auth-form">
+                <h2 id="auth-title">Login</h2>
+                <form id="auth-form">
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" pattern="[A-Za-z0-9]+" required>
+                    </div>
+                    <div id="email-group" class="form-group" style="display: none;">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" pattern="[A-Za-z0-9]+" required>
+                    </div>
+                    <button type="submit" id="auth-button">Login</button>
+                    <button type="button" id="toggle-auth"
+                        style="background: #6c757d; margin-left: 10px;">Register</button>
+                    <div id="auth-message"></div>
+                </form>
+            </div>
+        </div>
+
+        <div id="dashboard" class="dashboard">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('projects')">My Projects</button>
+                <button class="tab" id="admin-btn" onclick="showTab('admin')" style="display: none;">Admin</button>
+            </div>
+
+            <div id="projects-tab" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3>My Projects</h3>
+                    <button onclick="showCreateProject()" style="background: #28a745;">Create Project</button>
+                </div>
+
+                <div id="create-project"
+                    style="display: none; background: #f8f9fa; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
+                    <h4>Create New Project</h4>
+                    <div class="form-group">
+                        <label for="project-name">Project Name:</label>
+                        <input type="text" id="project-name" pattern="[A-Za-z0-9]+" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-description">Description:</label>
+                        <input type="text" id="project-description" pattern="[A-Za-z0-9]+">
+                    </div>
+                    <button onclick="createProject()" style="background: #28a745;">Create</button>
+                    <button onclick="hideCreateProject()"
+                        style="background: #6c757d; margin-left: 10px;">Cancel</button>
+                    <div id="create-project-message"></div>
+                </div>
+
+                <div id="projects-list"></div>
+            </div>
+
+            <div id="admin-tab" class="tab-content adminTab" style="display: none;">
+                <h3>Admin Panel</h3>
+                <div style="display: flex; gap: 20px; flex-direction: column; margin-top: 20px;">
+                    <div style="flex: 1;">
+                        <h4>Users</h4>
+                        <div id="users-list" style="margin-top: 10px;"></div>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4>All Projects</h4>
+                        <div id="admin-projects-list" style="margin-top: 10px;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let authToken = null;
+        let isRegisterMode = false;
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const email = document.getElementById('email').value;
+            try {
+                const endpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
+                const body = isRegisterMode ? { username, email, password } : { username, password };
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    if (isRegisterMode) {
+                        showMessage('auth-message', 'Registration successful! Please login.', 'success');
+                        toggleAuthMode();
+                    } else {
+                        currentUser = data.user;
+                        authToken = data.token;
+                        showDashboard();
+                    }
+                } else {
+                    showMessage('auth-message', data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('auth-message', 'Connection error', 'error');
+            }
+        });
+
+        document.getElementById('toggle-auth').addEventListener('click', toggleAuthMode);
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            const title = document.getElementById('auth-title');
+            const button = document.getElementById('auth-button');
+            const toggle = document.getElementById('toggle-auth');
+            const emailGroup = document.getElementById('email-group');
+            if (isRegisterMode) {
+                title.textContent = 'Register';
+                button.textContent = 'Register';
+                toggle.textContent = 'Login';
+                emailGroup.style.display = 'block';
+                document.getElementById('email').required = true;
+            } else {
+                title.textContent = 'Login';
+                button.textContent = 'Login';
+                toggle.textContent = 'Register';
+                emailGroup.style.display = 'none';
+                document.getElementById('email').required = false;
+            }
+            document.getElementById('auth-message').innerHTML = '';
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            if (currentUser.role === 'admin') {
+                document.getElementById('admin-btn').style.display = 'block';
+            }
+            loadProjects();
+        }
+
+        function showTab(tabName) {
+
+            console.log(`Switching to tab: ${tabName}`);
+
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+
+            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).style.display = 'block';
+
+            if (tabName === 'admin') {
+                loadAdminData();
+                document.getElementsByClassName(`adminTab`).style.display = 'block';
+            } else if (tabName === 'projects') {
+                loadProjects();
+            }
+        }
+
+        async function loadProjects() {
+            try {
+                const response = await fetch('/api/user/projects', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                displayProjects(data.projects);
+            } catch (error) {
+                console.error('Failed to load projects:', error);
+            }
+        }
+
+        function displayProjects(projects) {
+            const container = document.getElementById('projects-list');
+            if (projects.length === 0) {
+                container.innerHTML = '<p>No projects yet. Create your first project!</p>';
+                return;
+            }
+            container.innerHTML = projects.map(project => `
+                        <div class="project-card">
+                            <h4>${project.name}</h4>
+                            <p>${project.description}</p>
+                            <p><strong>Project ID:</strong> <span class="token">${project.id}</span></p>
+                            <p><strong>Created:</strong> ${new Date(project.createdAt).toLocaleDateString()}</p>
+                            <div style="margin-top: 10px;">
+                                <button onclick="showProjectTokens('${project.id}')" style="background: #17a2b8;">Manage Tokens</button>
+                                <button onclick="deleteProject('${project.id}')" style="background: #dc3545; margin-left: 10px;">Delete</button>
+                            </div>
+                            <div id="tokens-${project.id}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"></div>
+                        </div>
+                    `).join('');
+        }
+
+        function showCreateProject() {
+            document.getElementById('create-project').style.display = 'block';
+        }
+
+        function hideCreateProject() {
+            document.getElementById('create-project').style.display = 'none';
+            document.getElementById('project-name').value = '';
+            document.getElementById('project-description').value = '';
+            document.getElementById('create-project-message').innerHTML = '';
+        }
+
+        async function createProject() {
+            const name = document.getElementById('project-name').value;
+            const description = document.getElementById('project-description').value;
+            if (!name) {
+                showMessage('create-project-message', 'Project name is required', 'error');
+                return;
+            }
+            try {
+                const response = await fetch('/api/user/projects', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ name, description })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showMessage('create-project-message', `Project created! Default token: ${data.defaultToken}`, 'success');
+                    setTimeout(() => {
+                        hideCreateProject();
+                        loadProjects();
+                    }, 3000);
+                } else {
+                    showMessage('create-project-message', data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('create-project-message', 'Failed to create project', 'error');
+            }
+        }
+
+        async function deleteProject(projectId) {
+            if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+                return;
+            }
+            try {
+                const response = await fetch(`/api/user/projects/${projectId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (response.ok) {
+                    loadProjects();
+                } else {
+                    alert('Failed to delete project');
+                }
+            } catch (error) {
+                alert('Failed to delete project');
+            }
+        }
+
+        async function showProjectTokens(projectId) {
+            const container = document.getElementById(`tokens-${projectId}`);
+            if (container.style.display === 'none') {
+                try {
+                    const response = await fetch(`/api/projects/${projectId}/tokens`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    const data = await response.json();
+                    displayTokens(projectId, data.tokens);
+                    container.style.display = 'block';
+                } catch (error) {
+                    console.error('Failed to load tokens:', error);
+                }
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function displayTokens(projectId, tokens) {
+            const container = document.getElementById(`tokens-${projectId}`);
+            container.innerHTML = `
+                        <h5>Project Tokens</h5>
+                        <div style="margin-bottom: 15px;">
+                            <button onclick="showCreateToken('${projectId}')" style="background: #28a745;">Create Token</button>
+                        </div>
+                        <div id="create-token-${projectId}" style="display: none; background: #e9ecef; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                            <h6>Create New Token</h6>
+                            <div class="form-group">
+                                <label>Token Name:</label>
+                                <input type="text" pattern="[A-Za-z0-9]+" id="token-name-${projectId}" placeholder="e.g. Production API">
+                            </div>
+                            <div class="form-group">
+                                <label>Permissions:</label>
+                                <select id="token-permissions-${projectId}">
+                                    <option value="read">Read Only</option>
+                                    <option value="write">Read + Write</option>
+                                    <option value="full" selected>Full Access</option>
+                                </select>
+                            </div>
+                            <button onclick="createToken('${projectId}')" style="background: #28a745;">Create</button>
+                            <button onclick="hideCreateToken('${projectId}')" style="background: #6c757d; margin-left: 10px;">Cancel</button>
+                            <div id="create-token-message-${projectId}"></div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Permissions</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Token</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tokens.map(token => `
+                                    <tr>
+                                        <td>${token.name}</td>
+                                        <td><span class="token">${token.permissions}</span></td>
+                                        <td>${token.active ? 'Active' : 'Inactive'}</td>
+                                        <td>${new Date(token.createdAt).toLocaleDateString()}</td>
+                                        <td>${token.token}</td>
+                                        <td>
+                                            <button onclick="deleteToken('${projectId}', '${token.id}')" style="background: #dc3545; font-size: 12px; padding: 5px 10px;">Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+        }
+
+        function showCreateToken(projectId) {
+            document.getElementById(`create-token-${projectId}`).style.display = 'block';
+        }
+
+        function hideCreateToken(projectId) {
+            document.getElementById(`create-token-${projectId}`).style.display = 'none';
+            document.getElementById(`token-name-${projectId}`).value = '';
+            document.getElementById(`create-token-message-${projectId}`).innerHTML = '';
+        }
+
+        async function createToken(projectId) {
+            const name = document.getElementById(`token-name-${projectId}`).value;
+            const permissions = document.getElementById(`token-permissions-${projectId}`).value;
+            if (!name) {
+                showMessage(`create-token-message-${projectId}`, 'Token name is required', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(`/api/projects/${projectId}/tokens`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ name, permissions })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showMessage(`create-token-message-${projectId}`, `Token created! Token: ${data.token}`, 'success');
+                    setTimeout(() => {
+                        hideCreateToken(projectId);
+                        showProjectTokens(projectId);
+                    }, 5000);
+                } else {
+                    showMessage(`create-token-message-${projectId}`, data.error, 'error');
+                }
+            } catch (error) {
+                showMessage(`create-token-message-${projectId}`, 'Failed to create token', 'error');
+            }
+        }
+
+        async function deleteToken(projectId, tokenId) {
+            if (!confirm('Are you sure you want to delete this token?')) {
+                return;
+            }
+            try {
+                const response = await fetch(`/api/projects/${projectId}/tokens/${tokenId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (response.ok) {
+                    showProjectTokens(projectId);
+                } else {
+                    alert('Failed to delete token');
+                }
+            } catch (error) {
+                alert('Failed to delete token');
+            }
+        }
+
+        async function loadAdminData() {
+            try {
+                const [usersResponse, projectsResponse] = await Promise.all([
+                    fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${authToken}` } }),
+                    fetch('/api/admin/projects', { headers: { 'Authorization': `Bearer ${authToken}` } })
+                ]);
+                const usersData = await usersResponse.json();
+                const projectsData = await projectsResponse.json();
+                displayAdminUsers(usersData.users);
+                displayAdminProjects(projectsData.projects);
+            } catch (error) {
+                console.error('Failed to load admin data:', error);
+            }
+        }
+
+        function displayAdminUsers(users) {
+            const container = document.getElementById('users-list');
+            container.innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Last Login</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${users.map(user => `
+                                    <tr>
+                                        <td>${user.username}</td>
+                                        <td>${user.email}</td>
+                                        <td>
+                                            <select onchange="updateUserRole('${user.id}', this.value)" ${user.username === 'admin' ? 'disabled' : ''}>
+                                                <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                                                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                            </select>
+                                        </td>
+                                        <td>${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}</td>
+                                        <td>
+                                            ${user.username !== 'admin' ? `<button onclick="deleteUser('${user.id}')" style="background: #dc3545; font-size: 12px; padding: 5px 10px;">Delete</button>` : ''}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+        }
+
+        function displayAdminProjects(projects) {
+            const container = document.getElementById('admin-projects-list');
+            container.innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Owner ID</th>
+                                    <th>Collections</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${projects.map(project => `
+                                    <tr>
+                                        <td>${project.name}</td>
+                                        <td><span class="token">${project.ownerId}</span></td>
+                                        <td>${project.collections?.length || 0}</td>
+                                        <td>${new Date(project.createdAt).toLocaleDateString()}</td>
+                                        <td>
+                                            <button onclick="deleteProjectAdmin('${project.id}')" style="background: #dc3545; font-size: 12px; padding: 5px 10px;">Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+                return;
+            }
+            try {
+                const response = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (response.ok) {
+                    loadAdminData();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Failed to delete user');
+                }
+            } catch (error) {
+                alert('Failed to delete user');
+            }
+        }
+
+        async function updateUserRole(userId, newRole) {
+            try {
+                const response = await fetch(`/api/admin/users/${userId}/role`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ role: newRole })
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    alert(data.error || 'Failed to update user role');
+                    loadAdminData();
+                }
+            } catch (error) {
+                alert('Failed to update user role');
+                loadAdminData();
+            }
+        }
+
+        async function deleteProjectAdmin(projectId) {
+            if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+                return;
+            }
+            try {
+                const response = await fetch(`/api/admin/projects/${projectId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (response.ok) {
+                    loadAdminData();
+                } else {
+                    alert('Failed to delete project');
+                }
+            } catch (error) {
+                alert('Failed to delete project');
+            }
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        console.log('LiekoDB Panel loaded');               
+    </script>
+</body>
+
+</html>

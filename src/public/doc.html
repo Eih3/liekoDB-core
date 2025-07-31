@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiekoDB Documentation</title>
+
+        <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2c3e50;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: var(--secondary);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            color: var(--secondary);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        h3 {
+            margin-top: 1.5rem;
+            color: var(--primary);
+        }
+
+        h4 {
+            margin-top: 1rem;
+            color: var(--dark);
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background-color: #f5f5f5;
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            overflow-x: auto;
+            border-radius: 0 4px 4px 0;
+            margin: 1rem 0;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        .example {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .example-title {
+            color: var(--primary);
+            margin-top: 0;
+        }
+
+        .example-description {
+            margin-bottom: 1rem;
+            color: #555;
+        }
+
+        .nav {
+            position: sticky;
+            top: 20px;
+            background-color: white;
+            padding: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .nav li {
+            margin-bottom: 0.5rem;
+        }
+
+        .nav a {
+            color: var(--secondary);
+            text-decoration: none;
+        }
+
+        .nav a:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .badge-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .badge-secondary {
+            background-color: var(--secondary);
+            color: white;
+        }
+
+        .badge-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .method {
+            margin-bottom: 2rem;
+        }
+
+        .method-signature {
+            background-color: var(--light);
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-bottom: 1rem;
+        }
+
+        .method-params {
+            margin-left: 1rem;
+        }
+
+        .param {
+            margin-bottom: 0.5rem;
+        }
+
+        .param-name {
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .param-type {
+            color: #666;
+            font-style: italic;
+        }
+
+        .param-desc {
+            margin-left: 1rem;
+        }
+
+        .return {
+            margin-top: 1rem;
+            font-style: italic;
+        }
+
+        .note {
+            background-color: #fff9e6;
+            border-left: 4px solid var(--warning);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .warning {
+            background-color: #ffebee;
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 1rem;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <style>
+        /* Custom styling for code blocks */
+        pre[class*="language-"] {
+    color: #f8f8f2;
+        }
+        
+        code[class*="language-"] {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+    </style>
+
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>LiekoDB Documentation</h1>
+            <p>A lightweight, flexible database solution for JavaScript applications</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="grid">
+            <nav class="nav">
+                <h3>Contents</h3>
+                <ul>
+                    <li><a href="#installation">Installation</a></li>
+                    <li><a href="#initialization">Initialization</a></li>
+                    <li><a href="#basic-operations">Basic Operations</a></li>
+                    <li><a href="#query-methods">Query Methods</a></li>
+                    <li><a href="#batch-operations">Batch Operations</a></li>
+                    <li><a href="#collection-management">Collection Management</a></li>
+                    <li><a href="#events">Events</a></li>
+                    <li><a href="#utility-methods">Utility Methods</a></li>
+                    <li><a href="#examples">Examples</a></li>
+                </ul>
+            </nav>
+
+            <main>
+                <section id="installation">
+                    <h2>Installation</h2>
+                    <p>LiekoDB can be used in both Node.js and browser environments.</p>
+
+                    <div class="method">
+                        <h3>Node.js</h3>
+                        <pre><code class="language-javascript">npm install lieko-db</code></pre>
+                    </div>
+
+                    <div class="method">
+                        <h3>Browser</h3>
+                        <pre><code class="language-javascript">&lt;script src="liekoDB-1.1.js"&gt;&lt;/script&gt;</code></pre>
+                    </div>
+                </section>
+
+                <section id="initialization">
+                    <h2>Initialization</h2>
+                    <p>Create a new LiekoDB instance with configuration options.</p>
+
+                    <div class="method">
+                        <div class="method-signature">
+                            new liekoDB(options: Object)
+                        </div>
+                        <div class="method-params">
+                            <div class="param">
+                                <span class="param-name">token</span>
+                                <span class="param-type">String</span>
+                                <div class="param-desc">Your project authentication token (required)</div>
+                            </div>
+                            <div class="param">
+                                <span class="param-name">databaseUrl</span>
+                                <span class="param-type">String</span>
+                                <div class="param-desc">URL of your LiekoDB server (default: 'http://localhost:6050')
+                                </div>
+                            </div>
+                            <div class="param">
+                                <span class="param-name">timeout</span>
+                                <span class="param-type">Number</span>
+                                <div class="param-desc">Request timeout in milliseconds (default: 5000)</div>
+                            </div>
+                            <div class="param">
+                                <span class="param-name">debug</span>
+                                <span class="param-type">Boolean</span>
+                                <div class="param-desc">Enable debug logging (default: true)</div>
+                            </div>
+                        </div>
+
+                        <h4>Example</h4>
+                        <pre><code class="language-javascript">const db = new liekoDB({
+  token: 'your_project_token',
+  databaseUrl: 'https://db.yourdomain.com',
+  timeout: 10000,
+  debug: true
+});</code></pre>
+                    </div>
+                </section>
+
+                <section id="basic-operations">
+                    <h2>Basic Operations</h2>
+
+                    <div class="method">
+                        <h3>Create/Update Records</h3>
+                        <div class="method-signature">
+                            db.set(collection: String, id: String, data: Object)
+                        </div>
+                        <p>Creates or updates a record in the specified collection.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: User Management</h4>
+                            <pre><code class="language-javascript">// Create or update a user
+await db.set('users', 'user123', {
+  name: 'John Doe',
+  email: 'john@example.com',
+  role: 'admin',
+  lastLogin: new Date().toISOString()
+});</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Read Records</h3>
+                        <div class="method-signature">
+                            db.get(collection: String, id: String?)
+                        </div>
+                        <p>Retrieves a single record or all records from a collection.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Retrieving Data</h4>
+                            <pre><code class="language-javascript">// Get single user
+const user = await db.get('users', 'user123');
+
+// Get all products
+const products = await db.get('products');</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Delete Records</h3>
+                        <div class="method-signature">
+                            db.delete(collection: String, id: String)
+                        </div>
+                        <p>Deletes a record from the specified collection.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Removing Data</h4>
+                            <pre><code class="language-javascript">// Delete a user
+await db.delete('users', 'user123');
+
+// Clear an entire collection
+await db.clear('temp_data');</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="query-methods">
+                    <h2>Query Methods</h2>
+
+                    <div class="method">
+                        <h3>Filtering Records</h3>
+                        <div class="method-signature">
+                            db.find(collection: String, filter: Object, options: Object?)
+                        </div>
+                        <p>Finds records matching the specified filter criteria.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Filtering Data</h4>
+                            <pre><code class="language-javascript">// Find all active admin users
+const admins = await db.find('users', {
+  role: 'admin',
+  active: true
+});
+
+// With sorting and pagination
+const recentUsers = await db.find('users', {
+  createdAt: { $gt: '2023-01-01' }
+}, {
+  sort: 'createdAt:desc',
+  limit: 10
+});</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Searching Records</h3>
+                        <div class="method-signature">
+                            db.search(collection: String, term: String, fields: Array, options: Object?)
+                        </div>
+                        <p>Searches records for the specified term in the given fields.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Text Search</h4>
+                            <pre><code class="language-javascript">// Search products by name or description
+const results = await db.search('products', 'wireless', [
+  'name',
+  'description'
+], {
+  limit: 5
+});</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Counting Records</h3>
+                        <div class="method-signature">
+                            db.count(collection: String, filter: Object?)
+                        </div>
+                        <p>Counts records in a collection, optionally with a filter.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Counting Data</h4>
+                            <pre><code class="language-javascript">// Count all users
+const totalUsers = await db.count('users');
+
+// Count active users
+const activeUsers = await db.count('users', {
+  active: true
+});</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="batch-operations">
+                    <h2>Batch Operations</h2>
+
+                    <div class="method">
+                        <h3>Batch Set</h3>
+                        <div class="method-signature">
+                            db.batchSet(collection: String, records: Array, concurrency: Number?)
+                        </div>
+                        <p>Creates or updates multiple records in a single operation.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Bulk Import</h4>
+                            <pre><code class="language-javascript">// Import multiple products
+await db.batchSet('products', [
+  { id: 'p1', name: 'Laptop', price: 999 },
+  { id: 'p2', name: 'Phone', price: 699 },
+  { id: 'p3', name: 'Tablet', price: 399 }
+]);</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Batch Get</h3>
+                        <div class="method-signature">
+                            db.batchGet(collection: String, keys: Array, concurrency: Number?)
+                        </div>
+                        <p>Retrieves multiple records by their IDs in a single operation.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Bulk Retrieval</h4>
+                            <pre><code class="language-javascript">// Get multiple users
+const users = await db.batchGet('users', [
+  'user1',
+  'user2',
+  'user3'
+]);</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Batch Delete</h3>
+                        <div class="method-signature">
+                            db.batchDelete(collection: String, keys: Array, concurrency: Number?)
+                        </div>
+                        <p>Deletes multiple records by their IDs in a single operation.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Bulk Deletion</h4>
+                            <pre><code class="language-javascript">// Delete multiple products
+await db.batchDelete('products', [
+  'p1',
+  'p2',
+  'p3'
+]);</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="collection-management">
+                    <h2>Collection Management</h2>
+
+                    <div class="method">
+                        <h3>Collection Information</h3>
+                        <div class="method-signature">
+                            db.keys(collection: String)
+                        </div>
+                        <p>Returns all keys in the specified collection.</p>
+
+                        <div class="method-signature">
+                            db.entries(collection: String)
+                        </div>
+                        <p>Returns all key-value pairs in the specified collection.</p>
+
+                        <div class="method-signature">
+                            db.size(collection: String)
+                        </div>
+                        <p>Returns the number of records in the specified collection.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Collection Stats</h4>
+                            <pre><code class="language-javascript">// Get collection information
+const keys = await db.keys('users');
+const entries = await db.entries('products');
+const size = await db.size('orders');
+
+console.log(`Users collection has ${size} records`);</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="query-methods">
+        <h2>Query Methods</h2>
+
+        <div class="method">
+            <h3>Searching Records</h3>
+            <div class="method-signature">
+                db.search(collection: String, term: String, fields: Array, options: Object?)
+            </div>
+            <p>Searches records for the specified term in the given fields with powerful search capabilities.</p>
+
+            <div class="example">
+                <h4 class="example-title">Example 1: Basic Text Search</h4>
+                <pre><code class="language-javascript">// Search users by name or email
+const results = await db.search('users', 'john', [
+  'firstName',
+  'lastName',
+  'email'
+]);</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 2: Search with Pagination</h4>
+                <pre><code class="language-javascript">// Search products with pagination (page 2, 10 items per page)
+const pageResults = await db.search('products', 'laptop', [
+  'name',
+  'description',
+  'category'
+], {
+  limit: 10,
+  offset: 10
+});</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 3: Search with Sorting</h4>
+                <pre><code class="language-javascript">// Search orders by customer name, sorted by date
+const sortedResults = await db.search('orders', 'Smith', [
+  'customerName',
+  'customerEmail'
+], {
+  sort: 'orderDate:desc',
+  limit: 5
+});</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 4: Search with Multiple Terms</h4>
+                <pre><code class="language-javascript">// Search for documents containing both "wireless" and "keyboard"
+const multiTermResults = await db.search('products', 'wireless keyboard', [
+  'name',
+  'description',
+  'tags'
+], {
+  operator: 'AND' // Default is 'OR'
+});</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 5: Search with Field Boosting</h4>
+                <pre><code class="language-javascript">// Make matches in title more important than description
+const boostedResults = await db.search('articles', 'database', [
+  { field: 'title', boost: 2 },
+  { field: 'description', boost: 1 },
+  'tags'
+]);</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 6: Search with Exact Phrase</h4>
+                <pre><code class="language-javascript">// Search for exact phrase "wireless mouse"
+const exactPhraseResults = await db.search('products', '"wireless mouse"', [
+  'name',
+  'description'
+]);</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 7: Search with Wildcards</h4>
+                <pre><code class="language-javascript">// Search for terms starting with "comp"
+const wildcardResults = await db.search('products', 'comp*', [
+  'name',
+  'sku'
+]);</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 8: Search with Filter</h4>
+                <pre><code class="language-javascript">// Search only in active products
+const filteredResults = await db.search('products', 'monitor', [
+  'name',
+  'description'
+], {
+  filter: {
+    status: 'active',
+    price: { $lt: 500 }
+  }
+});</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 9: Search in Nested Fields</h4>
+                <pre><code class="language-javascript">// Search in nested object fields
+const nestedResults = await db.search('users', 'engineer', [
+  'profile.jobTitle',
+  'profile.skills'
+]);</code></pre>
+            </div>
+
+            <div class="example">
+                <h4 class="example-title">Example 10: Search with Highlighting</h4>
+                <pre><code class="language-javascript">// Get search results with highlighted matches
+const highlightedResults = await db.search('documents', 'database', [
+  'title',
+  'content'
+], {
+  highlight: true,
+  highlightPre: '&lt;mark&gt;',
+  highlightPost: '&lt;/mark&gt;'
+});</code></pre>
+            </div>
+        </div>
+
+    </section>
+
+                <section id="events">
+                    <h2>Events</h2>
+                    <p>LiekoDB emits events for various operations and state changes.</p>
+
+                    <div class="method">
+                        <h3>Connection Events</h3>
+                        <pre><code class="language-javascript">// Connection established
+db.on('ready', () => {
+  console.log('Database connected');
+});
+
+// Connection error
+db.on('error', (error) => {
+  console.error('Database error:', error);
+});</code></pre>
+                    </div>
+
+                    <div class="method">
+                        <h3>Operation Events</h3>
+                        <pre><code class="language-javascript">// Record created
+db.on('record:created', (data) => {
+  console.log(`New record in ${data.collection}: ${data.id}`);
+});
+
+// Record updated
+db.on('record:updated', (data) => {
+  console.log(`Updated record in ${data.collection}: ${data.id}`);
+});
+
+// Record deleted
+db.on('record:deleted', (data) => {
+  console.log(`Deleted record from ${data.collection}: ${data.key}`);
+});</code></pre>
+                    </div>
+                </section>
+
+                <section id="utility-methods">
+                    <h2>Utility Methods</h2>
+
+                    <div class="method">
+                        <h3>Database Health</h3>
+                        <div class="method-signature">
+                            db.health()
+                        </div>
+                        <p>Checks the health status of the database connection.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Health Check</h4>
+                            <pre><code class="language-javascript">const health = await db.health();
+console.log(`Database status: ${health.status}`);</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Ping</h3>
+                        <div class="method-signature">
+                            db.ping()
+                        </div>
+                        <p>Measures the latency to the database server.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Latency Measurement</h4>
+                            <pre><code class="language-javascript">const latency = await db.ping();
+console.log(`Server response time: ${latency}ms`);</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="method">
+                        <h3>Connection Info</h3>
+                        <div class="method-signature">
+                            db.getConnectionInfo()
+                        </div>
+                        <p>Returns information about the current connection.</p>
+
+                        <div class="example">
+                            <h4 class="example-title">Example: Connection Info</h4>
+                            <pre><code class="language-javascript">const info = db.getConnectionInfo();
+console.log(`Connected to project ${info.projectId}`);
+console.log(`Permissions: ${info.permissions}`);</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="examples">
+                    <h2>Complete Examples</h2>
+
+                    <div class="example">
+                        <h3 class="example-title">Example 1: E-commerce Application</h3>
+                        <div class="example-description">
+                            A complete example of managing products, orders, and inventory.
+                        </div>
+                        <pre><code class="language-javascript">// Initialize database
+const db = new liekoDB({
+  token: 'ecom_token_123',
+  databaseUrl: 'https://db.ecom.example.com'
+});
+
+// Add products
+await db.batchSet('products', [
+  { id: 'prod1', name: 'Smartphone', price: 599, stock: 50 },
+  { id: 'prod2', name: 'Laptop', price: 999, stock: 30 },
+  { id: 'prod3', name: 'Headphones', price: 99, stock: 100 }
+]);
+
+// Process an order
+async function processOrder(orderId, items) {
+  // Create order record
+  await db.set('orders', orderId, {
+    customerId: 'cust123',
+    items,
+    total: items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+    status: 'processing',
+    createdAt: new Date().toISOString()
+  });
+  
+  // Update inventory
+  const updates = items.map(item => ({
+    id: item.productId,
+    updates: { stock: db.decrement(item.quantity) }
+  }));
+  
+  await db.batchUpdate('products', updates);
+  
+  // Complete order
+  await db.update('orders', orderId, {
+    status: 'completed',
+    completedAt: new Date().toISOString()
+  });
+}
+
+// Get low stock products
+const lowStock = await db.find('products', {
+  stock: { $lt: 10 }
+}, {
+  sort: 'stock:asc'
+});</code></pre>
+                    </div>
+
+                    <div class="example">
+                        <h3 class="example-title">Example 2: User Analytics</h3>
+                        <div class="example-description">
+                            Tracking user activity and generating reports.
+                        </div>
+                        <pre><code class="language-javascript">// Track user activity
+async function trackActivity(userId, action, metadata = {}) {
+  const eventId = `evt_${Date.now()}`;
+  
+  await db.set('events', eventId, {
+    userId,
+    action,
+    ...metadata,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Update user's last activity
+  await db.update('users', userId, {
+    lastActivity: new Date().toISOString(),
+    activityCount: db.increment(1)
+  });
+}
+
+// Generate daily report
+async function generateDailyReport(date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  
+  const events = await db.find('events', {
+    timestamp: {
+      $gte: start.toISOString(),
+      $lte: end.toISOString()
+    }
+  });
+  
+  const userCount = await db.count('users', {
+    lastActivity: {
+      $gte: start.toISOString()
+    }
+  });
+  
+  return {
+    date,
+    totalEvents: events.length,
+    activeUsers: userCount,
+    eventsByType: events.reduce((acc, event) => {
+      acc[event.action] = (acc[event.action] || 0) + 1;
+      return acc;
+    }, {})
+  };
+}</code></pre>
+                    </div>
+
+                    <div class="example">
+                        <h3 class="example-title">Example 3: Real-time Dashboard</h3>
+                        <div class="example-description">
+                            Building a real-time dashboard with live updates.
+                        </div>
+                        <pre><code class="language-javascript">// Initialize dashboard
+const db = new liekoDB({
+  token: 'dashboard_token_456',
+  debug: false
+});
+
+// Get initial data
+async function loadDashboard() {
+  const [users, products, orders] = await Promise.all([
+    db.get('users'),
+    db.get('products'),
+    db.find('orders', {
+      status: 'completed',
+      createdAt: { $gte: new Date(Date.now() - 86400000).toISOString() }
+    })
+  ]);
+  
+  updateUI({ users, products, orders });
+}
+
+// Subscribe to real-time updates
+db.on('record:created', (data) => {
+  if (data.collection === 'orders') {
+    addNewOrderToUI(data.data);
+  }
+});
+
+db.on('record:updated', (data) => {
+  if (data.collection === 'products') {
+    updateProductStock(data.id, data.data.stock);
+  }
+});
+
+// Initial load
+loadDashboard();</code></pre>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>LiekoDB Documentation &copy; 2023 | Version 1.1.0</p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/line-numbers/prism-line-numbers.min.js"></script>
+</body>
+
+</html>
