@@ -96,8 +96,9 @@ class liekoDB extends EventEmitter {
             this.collections = tokenValidation.collections;
             this.projectName = tokenValidation.project.name;
 
-            // Format collections list
-            const collectionsList = this.collections.length > 0 ? this.collections.join(',') : 'none';
+            const collectionsList = this.collections.length > 0
+                ? this.collections.map(c => c.name).join(',')
+                : 'none';
             this._log(`Token validated: project=${this.projectName} (${this.projectId}), permissions=${this.permissions}, collections=${collectionsList}`);
 
             if (this.permissions === 'read') {

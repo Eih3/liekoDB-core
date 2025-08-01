@@ -53,7 +53,7 @@
         <!-- Setup Collection -->
         <div class="command-section">
             <h2 class="text-lg font-semibold mb-2">Setup Collection</h2>
-            <p class="text-gray-600 mb-4">Initialize testCollection with 20 random records (names, ages, cities, jobs, salaries, departments, tags).</p>
+            <p class="text-gray-600 mb-4">Initialize demo_users with 20 random records (names, ages, cities, jobs, salaries, departments, tags).</p>
             <button onclick="setupCollection()" class="example-button">Run Setup Example</button>
         </div>
 
@@ -165,7 +165,7 @@
 
     <script>
         const db = new liekoDB({
-            databaseUrl: 'http://gnode01.pyts-cloud.fr:9700:6050',
+            databaseUrl: 'http://gnode01.pyts-cloud.fr:9700',
             token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde',
             debug: true
         });
@@ -222,8 +222,8 @@
         async function setupCollection() {
             try {
                 const records = generateRandomRecords(20);
-                const result = await db.batchSet('testCollection', records);
-                logOutput(`Command: db.batchSet('testCollection', [20 random records])\nResult: ${JSON.stringify(result, null, 2)}`);
+                const result = await db.batchSet('demo_users', records);                
+                logOutput(`Command: db.batchSet('demo_users', [20 random records])\nResult: ${JSON.stringify(result, null, 2)}`);
             } catch (err) {
                 logOutput(`Error setting up collection: ${err.message}`);
             }
@@ -257,8 +257,8 @@
             try {
                 const term = document.getElementById('searchTerm').value;
                 const fields = document.getElementById('searchFields').value.split(',').map(f => f.trim()).filter(f => f);
-                const command = `db.search('testCollection', '${term}', ${JSON.stringify(fields || null)}, { limit: 10 })`;
-                const result = await db.search('testCollection', term, fields.length ? fields : null, { limit: 10 });
+                const command = `db.search('demo_users', '${term}', ${JSON.stringify(fields || null)}, { limit: 10 })`;
+                const result = await db.search('demo_users', term, fields.length ? fields : null, { limit: 10 });
                 logOutput(`Command: ${command}\nResult: ${JSON.stringify(result, null, 2)}`);
             } catch (err) {
                 logOutput(`Error searching: ${err.message}`);
@@ -294,8 +294,8 @@
                         throw new Error('Invalid filter JSON');
                     }
                 }
-                const command = filter ? `db.count('testCollection', ${JSON.stringify(filter)})` : `db.count('testCollection')`;
-                const count = await db.count('testCollection', filter);
+                const command = filter ? `db.count('demo_users', ${JSON.stringify(filter)})` : `db.count('demo_users')`;
+                const count = await db.count('demo_users', filter);
                 logOutput(`Command: ${command}\nResult: ${count}`);
             } catch (err) {
                 logOutput(`Error counting: ${err.message}`);
@@ -333,8 +333,8 @@
                 } else {
                     filter = { salary: { $lte: 60000 } }; // Default
                 }
-                const command = `db.findOne('testCollection', ${JSON.stringify(filter)})`;
-                const result = await db.findOne('testCollection', filter);
+                const command = `db.findOne('demo_users', ${JSON.stringify(filter)})`;
+                const result = await db.findOne('demo_users', filter);
                 logOutput(`Command: ${command}\nResult: ${JSON.stringify(result, null, 2)}`);
             } catch (err) {
                 logOutput(`Error finding one: ${err.message}`);
@@ -346,15 +346,15 @@
             try {
                 const example = document.getElementById('keysExample').value;
                 if (example === '2') {
-                    await db.clear('testCollection');
-                    logOutput(`Command: db.clear('testCollection')\nResult: Cleared testCollection`);
+                    await db.clear('demo_users');
+                    logOutput(`Command: db.clear('demo_users')\nResult: Cleared demo_users`);
                 } else if (example === '3') {
                     const newRecord = { id: 'record_new', name: 'New User', age: 40, city: 'Seoul', job: 'Consultant', salary: 80000, department: 'Sales', tags: ['contract'], contact: { email: 'new.user@example.com', yearsExperience: 15 } };
-                    await db.set('testCollection', newRecord.id, newRecord);
-                    logOutput(`Command: db.set('testCollection', '${newRecord.id}', ${JSON.stringify(newRecord)})\nResult: Record added`);
+                    await db.set('demo_users', newRecord.id, newRecord);
+                    logOutput(`Command: db.set('demo_users', '${newRecord.id}', ${JSON.stringify(newRecord)})\nResult: Record added`);
                 }
-                const command = `db.keys('testCollection')`;
-                const keys = await db.keys('testCollection');
+                const command = `db.keys('demo_users')`;
+                const keys = await db.keys('demo_users');
                 logOutput(`Command: ${command}\nResult: ${JSON.stringify(keys, null, 2)}`);
             } catch (err) {
                 logOutput(`Error getting keys: ${err.message}`);
@@ -366,15 +366,15 @@
             try {
                 const example = document.getElementById('entriesExample').value;
                 if (example === '2') {
-                    await db.clear('testCollection');
-                    logOutput(`Command: db.clear('testCollection')\nResult: Cleared testCollection`);
+                    await db.clear('demo_users');
+                    logOutput(`Command: db.clear('demo_users')\nResult: Cleared demo_users`);
                 } else if (example === '3') {
                     const record = { id: 'record1', salary: 55000 };
-                    await db.update('testCollection', record.id, { salary: record.salary });
-                    logOutput(`Command: db.update('testCollection', 'record1', ${JSON.stringify({ salary: record.salary })})\nResult: Salary updated`);
+                    await db.update('demo_users', record.id, { salary: record.salary });
+                    logOutput(`Command: db.update('demo_users', 'record1', ${JSON.stringify({ salary: record.salary })})\nResult: Salary updated`);
                 }
-                const command = `db.entries('testCollection')`;
-                const entries = await db.entries('testCollection');
+                const command = `db.entries('demo_users')`;
+                const entries = await db.entries('demo_users');
                 logOutput(`Command: ${command}\nResult: ${JSON.stringify(entries, null, 2)}`);
             } catch (err) {
                 logOutput(`Error getting entries: ${err.message}`);
@@ -386,15 +386,15 @@
             try {
                 const example = document.getElementById('sizeExample').value;
                 if (example === '2') {
-                    await db.clear('testCollection');
-                    logOutput(`Command: db.clear('testCollection')\nResult: Cleared testCollection`);
+                    await db.clear('demo_users');
+                    logOutput(`Command: db.clear('demo_users')\nResult: Cleared demo_users`);
                 } else if (example === '3') {
                     const newRecord = { id: 'record_new', name: 'New User', age: 40, city: 'Seoul', job: 'Consultant', salary: 80000, department: 'Sales', tags: ['contract'], contact: { email: 'new.user@example.com', yearsExperience: 15 } };
-                    await db.set('testCollection', newRecord.id, newRecord);
-                    logOutput(`Command: db.set('testCollection', '${newRecord.id}', ${JSON.stringify(newRecord)})\nResult: Record added`);
+                    await db.set('demo_users', newRecord.id, newRecord);
+                    logOutput(`Command: db.set('demo_users', '${newRecord.id}', ${JSON.stringify(newRecord)})\nResult: Record added`);
                 }
-                const command = `db.size('testCollection')`;
-                const size = await db.size('testCollection');
+                const command = `db.size('demo_users')`;
+                const size = await db.size('demo_users');
                 logOutput(`Command: ${command}\nResult: ${size}`);
             } catch (err) {
                 logOutput(`Error getting size: ${err.message}`);
@@ -439,8 +439,8 @@
                 if (!id || !field || isNaN(value)) {
                     throw new Error('Record ID, field, and value are required');
                 }
-                const command = `db.increment('testCollection', '${id}', '${field}', ${value})`;
-                const result = await db.increment('testCollection', id, field, value);
+                const command = `db.increment('demo_users', '${id}', '${field}', ${value})`;
+                const result = await db.increment('demo_users', id, field, value);
                 logOutput(`Command: ${command}\nResult: ${JSON.stringify(result, null, 2)}`);
             } catch (err) {
                 logOutput(`Error incrementing: ${err.message}`);
