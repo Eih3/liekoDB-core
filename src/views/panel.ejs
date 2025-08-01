@@ -326,7 +326,7 @@
 
             if (tabName === 'admin') {
                 loadAdminData();
-                document.getElementsByClassName(`adminTab`).style.display = 'block';
+                //document.getElementsByClassName(`adminTab`).style.display = 'block';
             } else if (tabName === 'projects') {
                 loadProjects();
             }
@@ -393,7 +393,7 @@
             }
 
             try {
-                const response = await fetch('/api/user/projects', {
+                const response = await fetch('/api/projects', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -403,7 +403,7 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    showMessage('create-project-message', `Project created! Default token: ${data.defaultToken}`, 'success');
+                    showMessage('create-project-message', `Project created! Default token: ${data.token}`, 'success');
                     setTimeout(() => {
                         hideCreateProject();
                         loadProjects();
