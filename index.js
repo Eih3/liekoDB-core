@@ -158,7 +158,7 @@ class LiekoDBCore {
 
         // Collection Routes
         this.app.head('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.checkCollection.bind(this));
-        this.app.get('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.getCollection.bind(this));
+        this.app.get('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.getCollectionRecords.bind(this));
         this.app.post('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireWriteAccess.bind(this), this.createCollection.bind(this));
         this.app.delete('/api/collections/:collection', this.authenticateProjectToken.bind(this), this.requireFullAccess.bind(this), this.deleteCollection.bind(this));
 
@@ -928,19 +928,26 @@ class LiekoDBCore {
         }
     }
 
-    async getCollection(req, res) {
+
+
+    async getCollectionRecords(req, res) {
         try {
             const { collection } = req.params;
             await this.ensureCollection(req.projectId, collection);
             const collectionPath = path.join(this.projectsDir, req.projectId, `${collection}.json`);
             const data = await this.readJsonFile(collectionPath) || {};
             let records = Object.values(data);
+
             if (req.query.filter) {
-                const filter = JSON.parse(req.query.filter);
-                records = records.filter(record => {
-                    return Object.entries(filter).every(([key, value]) => record[key] === value);
-                });
+                console.log('[DEBUG] raw filter:', req.query.filter);
+                try {
+                    const filter = JSON.parse(req.query.filter);
+                    records = records.filter(record => matchFilter(record, filter));
+                } catch (err) {
+                    return res.status(400).json({ error: 'Invalid filter JSON', status: 400 });
+                }
             }
+
             if (req.query.sort) {
                 const [field, order] = req.query.sort.split(':');
                 records.sort((a, b) => {
@@ -1414,6 +1421,79 @@ class LiekoDBCore {
             console.log(`📁 Storage directory: ${this.storageDir}`);
         });
     }
+}
+
+
+function getNestedValue(obj, path) {
+    return path.split('.').reduce((o, k) => (o || {})[k], obj);
+}
+
+function matchFilter(record, filter) {
+    const matchCondition = (field, condition) => {
+        const value = getNestedValue(record, field);
+
+        if (typeof condition === 'object' && condition !== null && !Array.isArray(condition)) {
+            return Object.entries(condition).every(([op, expected]) => {
+                switch (op) {
+                    case '$eq': return value === expected;
+                    case '$ne': return value !== expected;
+                    case '$gt': return value > expected;
+                    case '$gte': return value >= expected;
+                    case '$lt': return value < expected;
+                    case '$lte': return value <= expected;
+                    case '$in': return Array.isArray(expected) && expected.includes(value);
+                    case '$nin': return Array.isArray(expected) && !expected.includes(value);
+                    case '$contains':
+                        return typeof value === 'string' && value.includes(expected);
+                    case '$regex':
+                        try {
+                            const regex = new RegExp(expected);
+                            return typeof value === 'string' && regex.test(value);
+                        } catch {
+                            return false;
+                        }
+                    default:
+                        return false;
+                }
+            });
+        }
+
+        return value === condition;
+    };
+
+    if ('$search' in filter) {
+        const keyword = filter.$search.toLowerCase();
+
+        const recordMatches = (obj) => {
+            return Object.values(obj).some(val => {
+                if (typeof val === 'string') return val.toLowerCase().includes(keyword);
+                if (typeof val === 'object' && val !== null) return recordMatches(val); // recurse for nested objects
+                return false;
+            });
+        };
+
+        if (!recordMatches(record)) return false;
+    }
+
+    // Continue with normal filtering
+    for (const key of Object.keys(filter)) {
+        if (key === '$search') continue;
+        if (key === '$and') {
+            if (!Array.isArray(filter[key]) || !filter[key].every(sub => matchFilter(record, sub))) {
+                return false;
+            }
+        } else if (key === '$or') {
+            if (!Array.isArray(filter[key]) || !filter[key].some(sub => matchFilter(record, sub))) {
+                return false;
+            }
+        } else {
+            if (!matchCondition(key, filter[key])) {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 if (require.main === module) {

@@ -531,7 +531,7 @@ class liekoDB extends EventEmitter {
         if (options.limit !== undefined) params.set('limit', options.limit);
         if (options.offset) params.set('offset', options.offset);
         if (options.sort) params.set('sort', options.sort);
-        if (options.filter) params.set('filter', encodeURIComponent(JSON.stringify(options.filter)));
+        if (options.filter) params.set('filter', JSON.stringify(options.filter));
         return params.toString() ? '?' + params.toString() : '';
     }
 
