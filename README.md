@@ -1,725 +1,375 @@
-# liekoDB Client Documentation
+# LiekoDB Server
 
-This documentation provides examples of how to use the `liekoDB` client library to interact with a liekoDB server. The library provides methods for managing data in collections, including operations like setting, getting, checking existence, batch operations, searching, and retrieving data in various formats.
+![LiekoDB Logo](https://via.placeholder.com/150) <!-- Replace with actual logo if available -->
+
+**LiekoDB Server** is a lightweight, JSON-based database server built with Node.js and Express. It provides a RESTful API for managing collections and records, supporting CRUD operations, text search, batch processing, and pagination. Designed for simplicity and performance, LiekoDB is ideal for small to medium-sized applications, prototyping, or as a backend for web and mobile apps. It pairs seamlessly with the [LiekoDB JavaScript Client](https://github.com/your-repo/liekoDB-client) for a complete database solution.
+
+## Features
+
+- **JSON Storage**: Stores data as JSON files for simplicity and portability.
+- **RESTful API**: Exposes endpoints for creating, reading, updating, and deleting records.
+- **Text Search**: Supports case-insensitive search across all or specified fields.
+- **Batch Operations**: Efficiently handle multiple records in a single request.
+- **Pagination**: Retrieve large datasets with limit and offset controls.
+- **Authentication**: Uses token-based authentication for secure access.
+- **Lightweight**: Minimal dependencies (Express, CORS, UUID) for fast setup.
 
 ## Table of Contents
-- [Installation](#installation)
-- [Initialization](#initialization)
-- [Basic Operations](#basic-operations)
-  - [Set a Record](#set-a-record)
-  - [Get a Record](#get-a-record)
-  - [Check Existence (Has)](#check-existence-has)
-  - [Delete a Record](#delete-a-record)
-  - [Clear a Collection](#clear-a-collection)
-- [Batch Operations](#batch-operations)
-  - [Batch Set](#batch-set)
-  - [Batch Get](#batch-get)
-  - [Batch Update](#batch-update)
-  - [Batch Delete](#batch-delete)
-- [Query Operations](#query-operations)
-  - [Find Records](#find-records)
-  - [Find One Record](#find-one-record)
-  - [Search Records](#search-records)
-  - [Count Records](#count-records)
-  - [Paginate Records](#paginate-records)
-- [Advanced Operations](#advanced-operations)
-  - [Increment/Decrement a Field](#incrementdecrement-a-field)
-  - [Get Keys](#get-keys)
-  - [Get Values](#get-values)
-  - [Get Entries](#get-entries)
-  - [Get Collection Size](#get-collection-size)
-  - [Iterate Over Records](#iterate-over-records)
-- [Data Format Options](#data-format-options)
-  - [Get as Array](#get-as-array)
-  - [Get as Object](#get-as-object)
-- [Event Handling](#event-handling)
-- [Health and Connection](#health-and-connection)
-  - [Check Health](#check-health)
-  - [Ping Server](#ping-server)
-  - [Get Connection Info](#get-connection-info)
-- [Examples App](#examples-app)
 
-## Online Documentation
-[LiekoDB Documentation](http://gnode01.pyts-cloud.fr:9700/doc.html)
-
+1. [Installation](#installation)
+   - [Prerequisites](#prerequisites)
+   - [Setup](#setup)
+   - [Configuration](#configuration)
+2. [API Overview](#api-overview)
+3. [API Examples](#api-examples)
+   - [Create a Record](#create-a-record)
+   - [Retrieve Records](#retrieve-records)
+   - [Search Records](#search-records)
+   - [Update a Record](#update-a-record)
+   - [Delete a Record](#delete-a-record)
+   - [Batch Operations](#batch-operations)
+4. [Using with LiekoDB Client](#using-with-liekodb-client)
+5. [Troubleshooting](#troubleshooting)
+6. [Contributing](#contributing)
+7. [License](#license)
 
 ## Installation
 
-Install the `liekoDB` client library in a Node.js environment:
+### Prerequisites
+
+- **Node.js**: Version 14 or higher.
+- **npm**: Comes with Node.js.
+- A directory for storing JSON data (e.g., `./data`).
+
+### Setup
+
+1. **Clone the Repository**
+
+   ```bash
+   git clone https://github.com/Eih3/liekoDB-core.git
+   cd liekoDB-core
+   ```
+
+2. **Install Dependencies**
+
+   ```bash
+   npm install
+   ```
+
+   This installs required packages: `express`, `cors`, and `uuid`.
+
+3. **Create Data Directory**
+
+   Ensure a `./data` directory exists in the project root to store JSON files:
+
+   ```bash
+   mkdir data
+   ```
+
+4. **Generate a Project Token**
+
+   The server uses token-based authentication. Generate a token (e.g., using UUID):
+
+   ```bash
+   node -e "console.log(require('uuid').v4())"
+   ```
+
+   Example output: `abc123e4-5678-9012-3456-7890abcdef12`
+
+   Add the token to the `TOKENS` array in `index.js`:
+
+   ```javascript
+   const TOKENS = [
+     {
+       token: 'abc123e4-5678-9012-3456-7890abcdef12',
+       projectId: 'proj1',
+       permissions: 'full',
+       collections: [{ name: 'users' }, { name: 'products' }]
+     }
+   ];
+   ```
+
+5. **Start the Server**
+
+   ```bash
+   node index.js
+   ```
+
+   The server runs on `http://localhost:6050` by default. Use the `PORT` environment variable to change the port:
+
+   ```bash
+   PORT=8080 node index.js
+   ```
+
+### Configuration
+
+- **Port**: Set via `PORT` environment variable (default: 6050).
+- **Data Directory**: Defaults to `./data`. Modify `DATA_DIR` in `index.js` if needed.
+- **Tokens**: Configure tokens in the `TOKENS` array with appropriate permissions (`read`, `write`, `full`) and allowed collections.
+
+## API Overview
+
+The LiekoDB server exposes a RESTful API with the following key endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Check server health. |
+| `GET` | `/api/ping` | Measure server latency. |
+| `GET` | `/api/token/validate` | Validate a token. |
+| `GET` | `/api/collections/:collection` | Retrieve records with optional filters, sorting, and pagination. |
+| `GET` | `/api/collections/:collection/:id` | Retrieve a single record by ID. |
+| `POST` | `/api/collections/:collection` | Create a new record. |
+| `PUT` | `/api/collections/:collection/:id` | Update or create a record. |
+| `DELETE` | `/api/collections/:collection/:id` | Delete a record. |
+| `GET` | `/api/collections/:collection/search` | Search records by term. |
+| `POST` | `/api/collections/:collection/batch-set` | Create or update multiple records. |
+| `POST` | `/api/collections/:collection/batch-get` | Retrieve multiple records by ID. |
+| `POST` | `/api/collections/:collection/batch-delete` | Delete multiple records. |
+| `POST` | `/api/collections/:collection/batch-update` | Update multiple records. |
+| `GET` | `/api/collections/:collection/count` | Count records matching a filter. |
+| `GET` | `/api/collections/:collection/keys` | Get all record IDs. |
+| `GET` | `/api/collections/:collection/entries` | Get all records as key-value pairs. |
+| `GET` | `/api/collections/:collection/size` | Get the number of records. |
+| `POST` | `/api/collections/:collection/:id/increment` | Increment a numeric field. |
+| `POST` | `/api/collections/:collection/:id/decrement` | Decrement a numeric field. |
+
+All endpoints require an `Authorization: Bearer <token>` header.
+
+## API Examples
+
+Include the token in all requests:
 
 ```bash
-npm install liekodb
+export TOKEN=abc123e4-5678-9012-3456-7890abcdef12
 ```
 
-Or include it in a browser environment via a script tag (assuming the server exposes the client script):
+### Create a Record
 
-```html
-<script src="http://your-liekodb-server/liekoDB.js"></script>
+**Request**:
+
+```bash
+curl -X POST http://localhost:6050/api/collections/users \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "user1", "name": "Bob Smith", "email": "bob@example.com"}'
 ```
 
-## Initialization
+**Response**:
 
-To use `liekoDB`, initialize the client with a project token and optionally specify the database URL and other configuration options.
-
-```javascript
-const liekoDB = require('liekodb');
-
-const db = new liekoDB({
-  token: 'your-project-token',
-  databaseUrl: 'http://localhost:6050',
-  debug: true, // Enable debug logging
-  timeout: 5000, // Request timeout in milliseconds
-  retryAttempts: 3, // Number of retry attempts for failed requests
-  retryDelay: 1000 // Delay between retries in milliseconds
-});
-
-// Wait for the database to be ready
-db.on('ready', () => {
-  console.log('Database connection established');
-});
-
-// Handle errors
-db.on('error', (error) => {
-  console.error('Database error:', error.message);
-});
-```
-
-## Basic Operations
-
-### Set a Record
-
-The `set` method creates or updates a record in a collection. If the record doesn't exist, it creates a new one; otherwise, it updates the existing record.
-
-```javascript
-async function setRecord() {
-  try {
-    const result = await db.set('users', 'user123', {
-      name: 'John Doe',
-      email: 'john@example.com',
-      age: 30
-    });
-    console.log('Record set:', result);
-  } catch (error) {
-    console.error('Error setting record:', error.message);
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user1",
+    "name": "Bob Smith",
+    "email": "bob@example.com"
   }
 }
-setRecord();
 ```
 
-### Get a Record
+### Retrieve Records
 
-The `get` method retrieves a single record by its ID or all records in a collection.
+**Request**: Get all users with a filter and pagination.
 
-```javascript
-async function getRecord() {
-  try {
-    // Get a single record
-    const user = await db.get('users', 'user123');
-    console.log('Single record:', user);
-
-    // Get all records in a collection
-    const allUsers = await db.get('users');
-    console.log('All users:', allUsers);
-  } catch (error) {
-    console.error('Error getting record:', error.message);
-  }
-}
-getRecord();
+```bash
+curl -X GET "http://localhost:6050/api/collections/users?filter=%7B%22%24eq%22:%7B%22status%22:%22active%22%7D%7D&limit=10&offset=0&sort=name" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### Check Existence (Has)
+**Response**:
 
-The `has` method checks if a record exists in a collection by its ID.
-
-```javascript
-async function checkRecord() {
-  try {
-    const exists = await db.has('users', 'user123');
-    console.log('Record exists:', exists); // true or false
-  } catch (error) {
-    console.error('Error checking record:', error.message);
-  }
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "user1",
+      "name": "Bob Smith",
+      "email": "bob@example.com",
+      "status": "active"
+    }
+  ],
+  "totalCount": 1,
+  "actualPage": 1,
+  "maxPage": 1
 }
-checkRecord();
-```
-
-### Delete a Record
-
-The `delete` method removes a record from a collection by its ID.
-
-```javascript
-async function deleteRecord() {
-  try {
-    const success = await db.delete('users', 'user123');
-    console.log('Record deleted:', success); // true if deleted, false if not found
-  } catch (error) {
-    console.error('Error deleting record:', error.message);
-  }
-}
-deleteRecord();
-```
-
-### Clear a Collection
-
-The `clear` method removes all records from a collection.
-
-```javascript
-async function clearCollection() {
-  try {
-    await db.clear('users');
-    console.log('Collection cleared');
-  } catch (error) {
-    console.error('Error clearing collection:', error.message);
-  }
-}
-clearCollection();
-```
-
-## Batch Operations
-
-### Batch Set
-
-The `batchSet` method creates or updates multiple records in a single request.
-
-```javascript
-async function batchSetRecords() {
-  try {
-    const records = [
-      { id: 'user1', name: 'Alice', email: 'alice@example.com' },
-      { id: 'user2', name: 'Bob', email: 'bob@example.com' }
-    ];
-    const result = await db.batchSet('users', records);
-    console.log('Batch set results:', result);
-    // Example output: { results: [{ id: 'user1', status: 'success', record: {...} }, ...], errors: [], total: 2 }
-  } catch (error) {
-    console.error('Error in batch set:', error.message);
-  }
-}
-batchSetRecords();
-```
-
-### Batch Get
-
-The `batchGet` method retrieves multiple records by their IDs in a single request.
-
-```javascript
-async function batchGetRecords() {
-  try {
-    const keys = ['user1', 'user2'];
-    const result = await db.batchGet('users', keys);
-    console.log('Batch get results:', result);
-    // Example output: { results: [{ id: 'user1', name: 'Alice', ...}, ...], errors: [], total: 2 }
-  } catch (error) {
-    console.error('Error in batch get:', error.message);
-  }
-}
-batchGetRecords();
-```
-
-### Batch Update
-
-The `batchUpdate` method updates multiple records in a single request.
-
-```javascript
-async function batchUpdateRecords() {
-  try {
-    const updates = [
-      { id: 'user1', updates: { age: 25 } },
-      { id: 'user2', updates: { age: 30 } }
-    ];
-    const result = await db.batchUpdate('users', updates);
-    console.log('Batch update results:', result);
-    // Example output: { results: [{ id: 'user1', status: 'success', record: {...} }, ...], errors: [], total: 2 }
-  } catch (error) {
-    console.error('Error in batch update:', error.message);
-  }
-}
-batchUpdateRecords();
-```
-
-### Batch Delete
-
-The `batchDelete` method deletes multiple records by their IDs in a single request.
-
-```javascript
-async function batchDeleteRecords() {
-  try {
-    const keys = ['user1', 'user2'];
-    const result = await db.batchDelete('users', keys);
-    console.log('Batch delete results:', result);
-    // Example output: { results: [{ key: 'user1', status: 'success' }, ...], errors: [], total: 2 }
-  } catch (error) {
-    console.error('Error in batch delete:', error.message);
-  }
-}
-batchDeleteRecords();
-```
-
-## Query Operations
-
-### Find Records
-
-The `find` method retrieves records matching a filter, with optional sorting and pagination.
-
-```javascript
-async function findRecords() {
-  try {
-    const filter = { age: 30 };
-    const options = {
-      sort: 'name:asc', // Sort by name in ascending order
-      limit: 10, // Limit to 10 records
-      offset: 0 // Start from the first record
-    };
-    const results = await db.find('users', filter, options);
-    console.log('Found records:', results);
-  } catch (error) {
-    console.error('Error finding records:', error.message);
-  }
-}
-findRecords();
-```
-
-### Find One Record
-
-The `findOne` method retrieves the first record matching a filter.
-
-```javascript
-async function findOneRecord() {
-  try {
-    const filter = { email: 'john@example.com' };
-    const result = await db.findOne('users', filter);
-    console.log('Found one record:', result);
-  } catch (error) {
-    console.error('Error finding one record:', error.message);
-  }
-}
-findOneRecord();
 ```
 
 ### Search Records
 
-The `search` method performs a text search across specified fields in a collection.
+**Request**: Search for users containing "bob" in any field.
 
-```javascript
-async function searchRecords() {
-  try {
-    const term = 'John';
-    const fields = ['name', 'email'];
-    const options = { sort: 'name:asc', limit: 10 };
-    const results = await db.search('users', term, fields, options);
-    console.log('Search results:', results);
-  } catch (error) {
-    console.error('Error searching records:', error.message);
-  }
-}
-searchRecords();
+```bash
+curl -X GET "http://localhost:6050/api/collections/users/search?term=bob" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### Count Records
+**Response**:
 
-The `count` method returns the number of records matching a filter.
-
-```javascript
-async function countRecords() {
-  try {
-    const filter = { age: { $gt: 25 } };
-    const count = await db.count('users', filter);
-    console.log('Record count:', count);
-  } catch (error) {
-    console.error('Error counting records:', error.message);
-  }
-}
-countRecords();
-```
-
-### Paginate Records
-
-The `paginate` method retrieves records in pages, useful for large datasets.
-
-```javascript
-async function paginateRecords() {
-  try {
-    const page = 1;
-    const perPage = 10;
-    const options = { filter: { age: { $gte: 18 } }, sort: 'name:asc' };
-    const result = await db.paginate('users', page, perPage, options);
-    console.log('Paginated records:', result);
-    // Example output: { data: [...], totalCount: 50 }
-  } catch (error) {
-    console.error('Error paginating records:', error.message);
-  }
-}
-paginateRecords();
-```
-
-## Advanced Operations
-
-### Increment/Decrement a Field
-
-The `increment` and `decrement` methods adjust a numeric field in a record.
-
-```javascript
-async function incrementField() {
-  try {
-    const result = await db.increment('users', 'user123', 'age', 1);
-    console.log('Incremented record:', result);
-  } catch (error) {
-    console.error('Error incrementing field:', error.message);
-  }
-}
-
-async function decrementField() {
-  try {
-    const result = await db.decrement('users', 'user123', 'age', 1);
-    console.log('Decremented record:', result);
-  } catch (error) {
-    console.error('Error decrementing field:', error.message);
-  }
-}
-incrementField();
-decrementField();
-```
-
-### Get Keys
-
-The `keys` method retrieves all record IDs in a collection.
-
-```javascript
-async function getKeys() {
-  try {
-    const keys = await db.keys('users');
-    console.log('Collection keys:', keys);
-  } catch (error) {
-    console.error('Error getting keys:', error.message);
-  }
-}
-getKeys();
-```
-
-### Get Values
-
-The `values` method retrieves all records in a collection as an array.
-
-```javascript
-async function getValues() {
-  try {
-    const values = await db.values('users', { sort: 'name:asc' });
-    console.log('Collection values:', values);
-  } catch (error) {
-    console.error('Error getting values:', error.message);
-  }
-}
-getValues();
-```
-
-### Get Entries
-
-The `entries` method retrieves all records as key-value pairs.
-
-```javascript
-async function getEntries() {
-  try {
-    const entries = await db.entries('users');
-    console.log('Collection entries:', entries);
-  } catch (error) {
-    console.error('Error getting entries:', error.message);
-  }
-}
-getEntries();
-```
-
-### Get Collection Size
-
-The `size` method returns the number of records in a collection.
-
-```javascript
-async function getSize() {
-  try {
-    const size = await db.size('users');
-    console.log('Collection size:', size);
-  } catch (error) {
-    console.error('Error getting size:', error.message);
-  }
-}
-getSize();
-```
-
-### Iterate Over Records
-
-The `iterator` method provides an async iterator for streaming records.
-
-```javascript
-async function iterateRecords() {
-  try {
-    const iterator = await db.iterator('users', { perPage: 10 });
-    for await (const record of iterator) {
-      console.log('Record:', record);
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "user1",
+      "name": "Bob Smith",
+      "email": "bob@example.com"
+    },
+    {
+      "id": "user2",
+      "name": "Alice Bobson",
+      "email": "alice@example.com"
     }
-  } catch (error) {
-    console.error('Error iterating records:', error.message);
+  ],
+  "totalCount": 2,
+  "actualPage": 1,
+  "maxPage": 1
+}
+```
+
+**Request**: Search in specific fields.
+
+```bash
+curl -X GET "http://localhost:6050/api/collections/users/search?term=bob&fields=name,email" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Update a Record
+
+**Request**:
+
+```bash
+curl -X PUT http://localhost:6050/api/collections/users/user1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Bob Updated", "status": "active"}'
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user1",
+    "name": "Bob Updated",
+    "email": "bob@example.com",
+    "status": "active"
   }
 }
-iterateRecords();
 ```
 
-## Data Format Options
+### Delete a Record
 
-### Get as Array
+**Request**:
 
-By default, collections like `users`, `profiles`, `accounts`, and `settings` return data as objects (keyed by ID). To force an array output, use the `returnType` option.
+```bash
+curl -X DELETE http://localhost:6050/api/collections/users/user1 \
+  -H "Authorization: Bearer $TOKEN"
+```
 
-```javascript
-async function getAsArray() {
-  try {
-    const users = await db.get('users', null, { returnType: 'array' });
-    console.log('Users as array:', users);
-  } catch (error) {
-    console.error('Error getting as array:', error.message);
-  }
+**Response**:
+
+```json
+{
+  "success": true,
+  "data": true
 }
-getAsArray();
 ```
 
-### Get as Object
+### Batch Operations
 
-To force object output for collections not in the default object-based patterns, use the `returnType` option.
+**Request**: Batch create users.
 
-```javascript
-async function getAsObject() {
-  try {
-    const data = await db.get('products', null, { returnType: 'object' });
-    console.log('Products as object:', data);
-  } catch (error) {
-    console.error('Error getting as object:', error.message);
-  }
-}
-getAsObject();
+```bash
+curl -X POST http://localhost:6050/api/collections/users/batch-set \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"records": [{"id": "user1", "name": "Bob"}, {"id": "user2", "name": "Alice"}]}'
 ```
 
-## Event Handling
+**Response**:
 
-The `liekoDB` client emits various events that you can listen to for monitoring operations.
-
-```javascript
-// Connection events
-db.on('connecting', () => console.log('Connecting to database...'));
-db.on('ready', () => console.log('Database ready'));
-db.on('disconnected', () => console.log('Database disconnected'));
-db.on('error', (error) => console.error('Database error:', error.message));
-
-// Operation events
-db.on('operation:start', ({ type, collection, key }) => {
-  console.log(`Starting ${type} operation on ${collection}${key ? `/${key}` : ''}`);
-});
-db.on('operation:success', ({ type, collection, result }) => {
-  console.log(`Completed ${type} on ${collection}:`, result);
-});
-db.on('operation:error', ({ type, collection, error }) => {
-  console.error(`Failed ${type} on ${collection}:`, error.message);
-});
-
-// Record events
-db.on('record:created', ({ collection, id, data }) => {
-  console.log(`Record created in ${collection} with ID ${id}:`, data);
-});
-db.on('record:updated', ({ collection, id, data }) => {
-  console.log(`Record updated in ${collection} with ID ${id}:`, data);
-});
-db.on('record:deleted', ({ collection, key }) => {
-  console.log(`Record deleted from ${collection} with key ${key}`);
-});
-
-// Request events
-db.on('request:completed', (log) => {
-  console.log(`Request completed: ${log.method} ${log.endpoint} (${log.status}, ${log.durationHuman})`);
-});
-db.on('request:failed', (log) => {
-  console.error(`Request failed: ${log.method} ${log.endpoint} (${log.error})`);
-});
-```
-
-## Health and Connection
-
-### Check Health
-
-The `health` method checks the server’s health status.
-
-```javascript
-async function checkHealth() {
-  try {
-    const health = await db.health();
-    console.log('Server health:', health);
-  } catch (error) {
-    console.error('Error checking health:', error.message);
-  }
-}
-checkHealth();
-```
-
-### Ping Server
-
-The `ping` method measures the server’s response time.
-
-```javascript
-async function pingServer() {
-  try {
-    const latency = await db.ping();
-    console.log('Server latency:', latency, 'ms');
-  } catch (error) {
-    console.error('Error pinging server:', error.message);
-  }
-}
-pingServer();
-```
-
-### Get Connection Info
-
-The `getConnectionInfo` method returns the current connection details.
-
-```javascript
-function getConnectionInfo() {
-  const info = db.getConnectionInfo();
-  console.log('Connection info:', info);
-}
-getConnectionInfo();
-```
-
-### Examples App
-
-Simple test with connection DB and user manipulations
-
-```javascript
-const db = new (require('liekodb'))({
-    databaseUrl: 'http://gnode01.pyts-cloud.fr:9700',
-    token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde',
-    debug: true
-});
-
-function waitForReady(db) {
-    return new Promise((resolve, reject) => {
-        if (db.isReady) return resolve(); // already ready
-        db.once('ready', resolve);
-        db.once('error', reject);
-    });
-}
-
-(async () => {
-    try {
-        await waitForReady(db); // Wait for the database to be ready
-
-        await db.clear("users");
-        console.log("Users collection cleared");
-
-        await db.set('users', 'user1', { name: 'John Doe', age: 30 });
-        console.log('User created successfully');
-
-        console.log('Fetching user data...');
-        console.log(await db.get('users', 'user1'));
-
-        const result = await db.delete('users', 'user1');
-        console.log(`User deleted successfully: ${JSON.stringify(result)}`);
-
-        console.log('Fetching user data...');
-        console.log(await db.get('users', 'user1'));
-    } catch (error) {
-        console.error(`Database operation failed: ${error.message}`);
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "id": "user1",
+      "status": "success",
+      "record": { "id": "user1", "name": "Bob" }
+    },
+    {
+      "id": "user2",
+      "status": "success",
+      "record": { "id": "user2", "name": "Alice" }
     }
-})();
+  ],
+  "total": 2,
+  "errors": []
+}
 ```
 
-Other simple example
+## Using with LiekoDB Client
+
+The LiekoDB server pairs with the [LiekoDB JavaScript Client](https://github.com/your-repo/liekoDB-client) for a seamless experience. The client simplifies API calls with methods like `get`, `set`, `search`, and `batchSet`.
+
+**Example**:
 
 ```javascript
-const liekoDB = require('liekodb');
+const liekoDB = require('liekoDB');
 
 const db = new liekoDB({
-    databaseUrl: 'http://gnode01.pyts-cloud.fr:9700',
-    token: '108f4e86c17f5e950e7ffdd50ab4d8fd99bc56b3c43fa3d827ed558f1650afde',
-    debug: true
+  token: 'abc123e4-5678-9012-3456-7890abcdef12',
+  debug: true
 });
 
-testConnection();
+async function main() {
+  // Create a user
+  await db.set('users', 'user1', { name: 'Bob', email: 'bob@example.com' });
 
-db.on('connecting', () => {
-    console.log('Connecting to database...');
-});
+  // Search for "bob"
+  const users = await db.get('users', { filter: { $search: 'bob' } });
+  console.log(users.data);
 
-db.on('ready', () => {
-    console.log('Database is ready!');
-});
-
-db.clear("users").then(() => {
-    console.log("Users collection cleared");
-}).catch((error) => {
-    console.error(`Failed to clear users collection: ${error.message}`);
-});
-
-db.set('users', 'user1', { name: 'John Doe', age: 30 })
-    .then(async () => {
-        console.log('User created successfully');
-        console.log('Fetching user data...');
-        console.log(await db.get('users', 'user1'));
-    })
-    .then(async () => {
-        const result = await db.delete('users', 'user1');
-        console.log(`User deleted successfully: ${JSON.stringify(result)}`);
-        console.log('Fetching user data...');
-        console.log(await db.get('users', 'user1'));
-    })
-    .catch((error) => {
-        console.error(`Failed to create user: ${error.message}`);
-    });
-
-
-async function testConnection() {
-    try {
-        const result = await db.health();
-        console.log(`Health check: ${JSON.stringify(result)}`);
-    } catch (error) {
-        console.error(`Health check failed: ${error.message}`);
-    }
+  // Paginate users
+  const page = await db.paginate('users', 1, 10);
+  console.log(page.data);
 }
 
-
-async function createUser() {
-    try {
-        const userId = 'user_' + Date.now();
-        const userData = {
-            name: 'John Doe',
-            email: 'john@example.com',
-            age: 30,
-            createdAt: new Date().toISOString()
-        };
-        const result = await db.set('users', userId, userData);
-        console.log(`User created: ${JSON.stringify(result, null, 2)}`);
-    } catch (error) {
-        console.error(`Failed to create user: ${error.message}`);
-    }
-}
-
-
-createUser();
-
-/**
- * Collection Creation: The db.set() method automatically calls ensureCollection('users'), so the 'users' collection is created if it doesn't exist.
- */
+main().catch(console.error);
 ```
 
+See the [LiekoDB Client Documentation](https://github.com/your-repo/liekoDB-client) for full details.
 
-[LiekoDB Demo (html)](http://gnode01.pyts-cloud.fr:9700/examples/liekoDB_demo.html)
+## Troubleshooting
 
-[LiekoDB Tester (html)](http://gnode01.pyts-cloud.fr:9700/examples/liekoDB_tester.html)
+- **401 Unauthorized**: Ensure the `Authorization: Bearer <token>` header is correct and the token is in `TOKENS`.
+- **404 Not Found**: Verify the collection or record exists. Create collections automatically by adding records.
+- **500 Server Error**: Check server logs (`node index.js`) and ensure the `./data` directory is writable.
+- **Empty Search Results**: Confirm the search term matches field values (case-insensitive). Specify `fields` if needed.
+- **Connection Issues**: Ensure the server is running and the port matches the client’s `databaseUrl`.
 
-[LiekoDB Users App (html)](http://gnode01.pyts-cloud.fr:9700/examples/users-app.html)
+## Contributing
 
-[LiekoDB Users Dashboard (html)](http://gnode01.pyts-cloud.fr:9700/examples/users-dashboard.html)
+We welcome contributions! To contribute:
 
-## Notes
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/my-feature`).
+3. Commit changes (`git commit -m 'Add my feature'`).
+4. Push to the branch (`git push origin feature/my-feature`).
+5. Open a Pull Request.
 
-- **Permissions**: Ensure the project token has the necessary permissions (`read`, `write`, or `full`) for the operations you want to perform. Some operations (e.g., `clear`, `batchDelete`) require `full` permissions.
-- **Error Handling**: Always wrap operations in try-catch blocks to handle potential errors, such as network issues or permission errors.
-- **Debug Mode**: Enable the `debug` option during initialization to log detailed request and response information.
-- **Collection Creation**: The `ensureCollection` method is called automatically for write operations to create collections if they don’t exist.
-- **Async/Await**: All methods that interact with the server are asynchronous and return Promises.
+Please follow the [Code of Conduct](CODE_OF_CONDUCT.md) and include tests for new features.
 
-This documentation covers the core functionality of the `liekoDB` client. For advanced use cases or server-side configuration, refer to the server documentation or contact the liekoDB server administrator.
+## License
+
+MIT License
+
+Copyright (c) 2025 Your Name
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
