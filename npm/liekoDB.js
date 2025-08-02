@@ -70,6 +70,7 @@ class liekoDB extends EventEmitter {
         this.retryAttempts = options.retryAttempts || 3;
         this.retryDelay = options.retryDelay || 1000;
         this.debug = options.debug === true;
+        this.throwOnNotFound = options.throwOnNotFound === true;
         this._isReady = false;
         this._isConnecting = false;
         this._collectionCache = new Map();
@@ -78,7 +79,7 @@ class liekoDB extends EventEmitter {
             'User-Agent': 'liekoDB-Client/1.0.0',
             'Authorization': `Bearer ${this.token}`
         };
-        this._objectBasedPatterns = new Set(['users', 'profiles', 'accounts', 'settings']);
+
         if (options.autoConnect !== false) {
             this._initialize();
         }
@@ -90,6 +91,7 @@ class liekoDB extends EventEmitter {
         this.emit('connecting');
         try {
             this._log('Initializing database connection...');
+
             const tokenValidation = await this._request('GET', '/api/token/validate');
             this.projectId = tokenValidation.project.id;
             this.permissions = tokenValidation.permissions;
@@ -119,12 +121,13 @@ class liekoDB extends EventEmitter {
             let pingMessage = 'ping: N/A';
             try {
                 const latency = await this.ping();
-                pingMessage = `ping: ${this._formatDuration(latency)}`;
+                pingMessage = `ping: ${this._formatDuration(latency.data)}ms`;
             } catch (error) {
                 this._logError('Ping failed during initialization:', error.message);
                 pingMessage = 'ping: failed';
             }
-            this._log(`Database health: ${health.status}, ${pingMessage}`);
+            this._log(`Database health: ${health.data.status}, ${pingMessage}`);
+
             this._isReady = true;
             this._isConnecting = false;
             this._log('Database connection established');
@@ -157,48 +160,156 @@ class liekoDB extends EventEmitter {
         }
     }
 
-    _handleError(error, context = '') {
-        const enhancedError = new Error(`${context}: ${error.message}`);
-        enhancedError.originalError = error;
-        enhancedError.context = context;
-        enhancedError.status = error.status;
-        this._logError(enhancedError.message);
-        this.emit('error', enhancedError);
-        return enhancedError;
+    _createErrorResponse(error, operation, context = {}) {
+        const errorCode = this._getErrorCode(error, context);
+        const errorMessage = this._getHumanFriendlyError(error, operation, context);
+
+        return {
+            success: false,
+            error: {
+                code: errorCode,
+                message: errorMessage,
+                status: error.status || 500,
+                operation: operation,
+                timestamp: new Date().toISOString(),
+                ...(context.collection && { collection: context.collection }),
+                ...(context.key && { key: context.key })
+            },
+            data: null
+        };
     }
 
-    _transformResponse(data, options = {}) {
-        if (options.returnType === 'array') return Array.isArray(data) ? data : data.data || [];
-        if (options.returnType === 'map') return new Map(Object.entries(data.data || data));
-        if (Array.isArray(data) || (data.data && Array.isArray(data.data))) {
-            const records = Array.isArray(data) ? data : data.data;
-            return (this._objectBasedPatterns.has(options.collectionName) || options.returnType === 'object')
-                ? records.reduce((obj, record) => {
-                    if (record.id) obj[record.id] = record;
-                    return obj;
-                }, {})
-                : records;
+    _getErrorCode(error, context = {}) {
+        if (error.response && error.response.code) {
+            return error.response.code; // Use server-provided error code
         }
-        return data;
+        if (error.status === 401) return 'NO_TOKEN_PROVIDED';
+        if (error.status === 403) return 'FORBIDDEN';
+        if (error.status === 404) return 'RECORD_NOT_FOUND';
+        if (error.status === 409) return 'RECORD_EXISTS';
+        if (error.status === 429) return 'RATE_LIMIT_EXCEEDED';
+        if (error.status >= 500) return 'SERVER_ERROR';
+        if (error.name === 'AbortError') return 'TIMEOUT';
+        if (error.code === 'ECONNRESET') return 'CONNECTION_RESET';
+        if (error.code === 'ETIMEDOUT') return 'CONNECTION_TIMEOUT';
+        return 'UNKNOWN_ERROR';
+    }
+
+    _getHumanFriendlyError(error, operation, context = {}) {
+        const { collection, key } = context;
+        if (error.response && error.response.code) {
+            return error.response.message || error.message || 'An error occurred';
+        }
+        switch (error.status) {
+            case 401:
+                return 'Authentication failed. Please check your project token';
+            case 403:
+                return `Insufficient permissions for ${operation} operation${collection ? ` on collection '${collection}'` : ''}`;
+            case 404:
+                if (operation === 'get' && key) return `Record '${key}' not found in collection '${collection}'`;
+                if (operation === 'delete' && key) return `Record '${key}' does not exist in collection '${collection}'`;
+                return `Collection '${collection}' not found`;
+            case 409:
+                return `Conflict: Record already exists in collection '${collection}'`;
+            case 429:
+                return 'Too many requests. Please slow down and try again later';
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+                return 'Server error. Please try again later';
+            default:
+                if (error.name === 'AbortError') return `Request timeout after ${this.timeout}ms`;
+                if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') return 'Connection error. Please check your network and try again';
+                return error.message || 'An unexpected error occurred';
+        }
+    }
+
+    _transformResponse(rawResponse, operation = 'get', options = {}) {
+        let data;
+        let meta = {};
+
+        if (rawResponse && typeof rawResponse === 'object' && rawResponse.hasOwnProperty('success')) {
+            return rawResponse;
+        }
+
+        if (operation === 'batchSet' || operation === 'batchGet' || operation === 'batchDelete' || operation === 'batchUpdate') {
+            data = rawResponse.results || [];
+            meta = {
+                operation,
+                total: rawResponse.total || 0,
+                errors: rawResponse.errors || [],
+                ...(options.collection && { collection: options.collection })
+            };
+        } else if (Array.isArray(rawResponse)) {
+            data = rawResponse;
+            meta.count = rawResponse.length;
+        } else if (rawResponse && typeof rawResponse === 'object' && rawResponse.data) {
+            data = Array.isArray(rawResponse.data) ? rawResponse.data : [rawResponse.data];
+            if (rawResponse.totalCount !== undefined) meta.totalCount = rawResponse.totalCount;
+            if (rawResponse.actualPage !== undefined) meta.page = rawResponse.actualPage;
+            if (rawResponse.maxPage !== undefined) meta.totalPages = rawResponse.maxPage;
+        } else {
+            data = rawResponse;
+        }
+
+        meta.operation = operation;
+        if (options.collection) meta.collection = options.collection;
+        if (options.single) meta.single = true;
+
+        return {
+            success: true,
+            data,
+            ...(Object.keys(meta).length > 0 && { meta })
+        };
     }
 
     async get(collectionName, key = null, options = {}) {
         try {
-            this.emit('operation:start', { type: 'get', collection: collectionName, key });
-            if (key) {
-                const result = await this._request('GET', `/api/collections/${collectionName}/${key}`);
-                this.emit('operation:success', { type: 'get', collection: collectionName, key, result });
-                return result;
+            if (key && typeof key === 'object' && !Array.isArray(key)) {
+                options = key;
+                key = null;
             }
+            this.emit('operation:start', { type: 'get', collection: collectionName, key });
+
+            if (options.filter && options.filter.$search) {
+                // Handle $search filter by redirecting to /search endpoint
+                const searchTerm = options.filter.$search;
+                const fields = options.filter.fields || null;
+                const params = new URLSearchParams({ term: searchTerm });
+                if (fields) params.set('fields', fields.join(','));
+                if (options.sort) params.set('sort', options.sort);
+                if (options.limit) params.set('limit', options.limit);
+                if (options.offset) params.set('offset', options.offset);
+                const url = `/api/collections/${collectionName}/search?${params.toString()}`;
+                this._log('Redirecting $search filter to search endpoint:', url);
+                const result = await this._request('GET', url);
+                const response = this._transformResponse(result, 'get', { collection: collectionName });
+                this.emit('operation:success', { type: 'get', collection: collectionName, key, result: response });
+                return response;
+            }
+
             const queryParams = this._buildQueryParams(options);
-            const url = `/api/collections/${collectionName}${queryParams}`;
-            const response = await this._request('GET', url);
-            const transformed = this._transformResponse(response, { ...options, collectionName });
-            this.emit('operation:success', { type: 'get', collection: collectionName, result: transformed });
-            return transformed;
+            const url = key
+                ? `/api/collections/${collectionName}/${key}${queryParams}`
+                : `/api/collections/${collectionName}${queryParams}`;
+            const result = await this._request('GET', url);
+            const response = this._transformResponse(result, 'get', { collection: collectionName, single: !!key });
+            this.emit('operation:success', { type: 'get', collection: collectionName, key, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'get', collection: collectionName, key, error });
-            throw this._handleError(error, `Failed to get from ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'get', { collection: collectionName, key });
+            this.emit('operation:error', { type: 'get', collection: collectionName, key, error: errorResponse });
+            if (error.status === 404 && !this.throwOnNotFound) {
+                return errorResponse;
+            }
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'get',
+                collection: collectionName,
+                key
+            });
         }
     }
 
@@ -209,21 +320,30 @@ class liekoDB extends EventEmitter {
             this._log(`Upsert payload for ${collectionName}/${id}:`, JSON.stringify(payload, null, 2));
             try {
                 const result = await this._request('PUT', `/api/collections/${collectionName}/${id}`, payload);
-                this.emit('operation:success', { type: 'set', collection: collectionName, id, result });
+                const response = this._transformResponse(result, 'set', { collection: collectionName });
+                this.emit('operation:success', { type: 'set', collection: collectionName, id, result: response });
                 this.emit('record:updated', { collection: collectionName, id, data: payload });
-                return result;
+                return response;
             } catch (error) {
                 if (error.status === 404) {
                     const result = await this._request('POST', `/api/collections/${collectionName}`, payload);
-                    this.emit('operation:success', { type: 'set', collection: collectionName, id, result });
+                    const response = this._transformResponse(result, 'set', { collection: collectionName });
+                    this.emit('operation:success', { type: 'set', collection: collectionName, id, result: response });
                     this.emit('record:created', { collection: collectionName, id, data: payload });
-                    return result;
+                    return response;
                 }
                 throw error;
             }
         } catch (error) {
-            this.emit('operation:error', { type: 'set', collection: collectionName, id, error });
-            throw this._handleError(error, `Failed to set record in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'set', { collection: collectionName, key: id });
+            this.emit('operation:error', { type: 'set', collection: collectionName, id, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'set',
+                collection: collectionName,
+                key: id
+            });
         }
     }
 
@@ -235,26 +355,42 @@ class liekoDB extends EventEmitter {
         try {
             this.emit('operation:start', { type: 'delete', collection: collectionName, key });
             await this._request('DELETE', `/api/collections/${collectionName}/${key}`);
-            this.emit('operation:success', { type: 'delete', collection: collectionName, key, result: true });
+            const response = this._transformResponse(true, 'delete', { collection: collectionName });
+            this.emit('operation:success', { type: 'delete', collection: collectionName, key, result: response });
             this.emit('record:deleted', { collection: collectionName, key });
-            return true;
+            return response;
         } catch (error) {
-            if (error.status === 404) {
-                this.emit('operation:success', { type: 'delete', collection: collectionName, key, result: false });
-                return false;
+            const errorResponse = this._createErrorResponse(error, 'delete', { collection: collectionName, key });
+            this.emit('operation:error', { type: 'delete', collection: collectionName, key, error: errorResponse });
+            if (error.status === 404 && !this.throwOnNotFound) {
+                return errorResponse;
             }
-            this.emit('operation:error', { type: 'delete', collection: collectionName, key, error });
-            throw this._handleError(error, `Failed to delete from ${collectionName}`);
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'delete',
+                collection: collectionName,
+                key
+            });
         }
     }
 
     async has(collectionName, key) {
         try {
             await this._request('GET', `/api/collections/${collectionName}/${key}`);
-            return true;
+            return this._transformResponse(true, 'has', { collection: collectionName });
         } catch (error) {
-            if (error.status === 404) return false;
-            throw this._handleError(error, `Failed to check existence in ${collectionName}`);
+            if (error.status === 404) {
+                return this._transformResponse(false, 'has', { collection: collectionName });
+            }
+            const errorResponse = this._createErrorResponse(error, 'has', { collection: collectionName, key });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'has',
+                collection: collectionName,
+                key
+            });
         }
     }
 
@@ -262,11 +398,18 @@ class liekoDB extends EventEmitter {
         try {
             this.emit('operation:start', { type: 'clear', collection: collectionName });
             await this._request('DELETE', `/api/collections/${collectionName}`);
-            this.emit('operation:success', { type: 'clear', collection: collectionName });
-            return true;
+            const response = this._transformResponse(true, 'clear', { collection: collectionName });
+            this.emit('operation:success', { type: 'clear', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'clear', collection: collectionName, error });
-            throw this._handleError(error, `Failed to clear ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'clear', { collection: collectionName });
+            this.emit('operation:error', { type: 'clear', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'clear',
+                collection: collectionName
+            });
         }
     }
 
@@ -275,13 +418,22 @@ class liekoDB extends EventEmitter {
             this.emit('operation:start', { type: 'find', collection: collectionName });
             const queryParams = this._buildQueryParams({ ...options, filter });
             const url = `/api/collections/${collectionName}${queryParams}`;
-            const response = await this._request('GET', url);
-            const transformed = this._transformResponse(response, { ...options, collectionName });
-            this.emit('operation:success', { type: 'find', collection: collectionName, result: transformed });
-            return transformed;
+            const result = await this._request('GET', url);
+            const response = this._transformResponse(result, 'find', { collection: collectionName });
+            this.emit('operation:success', { type: 'find', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'find', collection: collectionName, error });
-            throw this._handleError(error, `Failed to find in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'find', { collection: collectionName });
+            this.emit('operation:error', { type: 'find', collection: collectionName, error: errorResponse });
+            if (error.status === 404 && !this.throwOnNotFound) {
+                return errorResponse;
+            }
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'find',
+                collection: collectionName
+            });
         }
     }
 
@@ -289,12 +441,22 @@ class liekoDB extends EventEmitter {
         try {
             this.emit('operation:start', { type: 'findOne', collection: collectionName });
             const params = filter ? `?filter=${encodeURIComponent(JSON.stringify(filter))}` : '';
-            const response = await this._request('GET', `/api/collections/${collectionName}/find-one${params}`);
+            const result = await this._request('GET', `/api/collections/${collectionName}/find-one${params}`);
+            const response = this._transformResponse(result, 'findOne', { collection: collectionName, single: true });
             this.emit('operation:success', { type: 'findOne', collection: collectionName, result: response });
             return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'findOne', collection: collectionName, error });
-            throw this._handleError(error, `Failed to find one in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'findOne', { collection: collectionName });
+            this.emit('operation:error', { type: 'findOne', collection: collectionName, error: errorResponse });
+            if (error.status === 404 && !this.throwOnNotFound) {
+                return errorResponse;
+            }
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'findOne',
+                collection: collectionName
+            });
         }
     }
 
@@ -307,13 +469,19 @@ class liekoDB extends EventEmitter {
             if (options.limit) params.set('limit', options.limit);
             if (options.offset) params.set('offset', options.offset);
             const url = `/api/collections/${collectionName}/search?${params.toString()}`;
-            const response = await this._request('GET', url);
-            const transformed = this._transformResponse(response, { ...options, collectionName });
-            this.emit('operation:success', { type: 'search', collection: collectionName, result: transformed });
-            return transformed;
+            const result = await this._request('GET', url);
+            const response = this._transformResponse(result, 'search', { collection: collectionName });
+            this.emit('operation:success', { type: 'search', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'search', collection: collectionName, error });
-            throw this._handleError(error, `Failed to search in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'search', { collection: collectionName });
+            this.emit('operation:error', { type: 'search', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'search',
+                collection: collectionName
+            });
         }
     }
 
@@ -321,12 +489,19 @@ class liekoDB extends EventEmitter {
         try {
             this.emit('operation:start', { type: 'count', collection: collectionName });
             const params = filter ? `?filter=${encodeURIComponent(JSON.stringify(filter))}` : '';
-            const response = await this._request('GET', `/api/collections/${collectionName}/count${params}`);
-            this.emit('operation:success', { type: 'count', collection: collectionName, result: response.count });
-            return response.count;
+            const result = await this._request('GET', `/api/collections/${collectionName}/count${params}`);
+            const response = this._transformResponse(result, 'count', { collection: collectionName });
+            this.emit('operation:success', { type: 'count', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'count', collection: collectionName, error });
-            throw this._handleError(error, `Failed to count in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'count', { collection: collectionName });
+            this.emit('operation:error', { type: 'count', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'count',
+                collection: collectionName
+            });
         }
     }
 
@@ -336,167 +511,245 @@ class liekoDB extends EventEmitter {
             const offset = (page - 1) * perPage;
             const queryParams = this._buildQueryParams({ ...options, limit: perPage, offset });
             const url = `/api/collections/${collectionName}${queryParams}`;
-            const response = await this._request('GET', url);
-            const transformed = {
-                data: this._transformResponse(response, { ...options, collectionName }),
-                totalCount: response.totalCount || 0
+            const result = await this._request('GET', url);
+            const paginationData = {
+                data: Array.isArray(result) ? result : (result.data || []),
+                totalCount: result.totalCount || 0,
+                actualPage: result.actualPage || page,
+                maxPage: result.maxPage || 1,
+                perPage,
+                hasNextPage: (result.actualPage || page) < (result.maxPage || 1),
+                hasPrevPage: (result.actualPage || page) > 1
             };
-            this.emit('operation:success', { type: 'paginate', collection: collectionName, result: transformed });
-            return transformed;
+            const response = this._transformResponse(paginationData, 'paginate', { collection: collectionName });
+            this.emit('operation:success', { type: 'paginate', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'paginate', collection: collectionName, error });
-            throw this._handleError(error, `Failed to paginate ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'paginate', { collection: collectionName });
+            this.emit('operation:error', { type: 'paginate', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'paginate',
+                collection: collectionName
+            });
         }
     }
 
     async increment(collectionName, id, field, amount = 1) {
         try {
             this.emit('operation:start', { type: 'increment', collection: collectionName, id });
-            const result = await this._request('POST', `/api/collections/${collectionName}/${id}/increment`, { field, amount });
-            this.emit('operation:success', { type: 'increment', collection: collectionName, id, result });
+            const result = await this._request('POST', `/api/collections/${collectionName}/${id}/increment`, { field, value: amount });
+            const response = this._transformResponse(result, 'increment', { collection: collectionName });
+            this.emit('operation:success', { type: 'increment', collection: collectionName, id, result: response });
             this.emit('record:updated', { collection: collectionName, id, data: result });
-            return result;
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'increment', collection: collectionName, id, error });
-            throw this._handleError(error, `Failed to increment in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'increment', { collection: collectionName, key: id });
+            this.emit('operation:error', { type: 'increment', collection: collectionName, id, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'increment',
+                collection: collectionName,
+                key: id
+            });
         }
     }
 
     async decrement(collectionName, id, field, amount = 1) {
         try {
             this.emit('operation:start', { type: 'decrement', collection: collectionName, id });
-            const result = await this._request('POST', `/api/collections/${collectionName}/${id}/decrement`, { field, amount });
-            this.emit('operation:success', { type: 'decrement', collection: collectionName, id, result });
+            const result = await this._request('POST', `/api/collections/${collectionName}/${id}/decrement`, { field, value: amount });
+            const response = this._transformResponse(result, 'decrement', { collection: collectionName });
+            this.emit('operation:success', { type: 'decrement', collection: collectionName, id, result: response });
             this.emit('record:updated', { collection: collectionName, id, data: result });
-            return result;
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'decrement', collection: collectionName, id, error });
-            throw this._handleError(error, `Failed to decrement in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'decrement', { collection: collectionName, key: id });
+            this.emit('operation:error', { type: 'decrement', collection: collectionName, id, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'decrement',
+                collection: collectionName,
+                key: id
+            });
         }
     }
 
-    async batchSet(collectionName, records, concurrency = 5) {
+    async batchSet(collectionName, records) {
         try {
             this.emit('operation:start', { type: 'batchSet', collection: collectionName });
             const result = await this._request('POST', `/api/collections/${collectionName}/batch-set`, { records });
-            this.emit('operation:success', { type: 'batchSet', collection: collectionName, result });
-            result.results.forEach(r => {
-                if (r.status === 'success') {
-                    this.emit('record:created', { collection: collectionName, id: r.id, data: r.record });
-                }
-            });
-            return result;
+            const response = this._transformResponse(result, 'batchSet', { collection: collectionName });
+            this.emit('operation:success', { type: 'batchSet', collection: collectionName, result: response });
+            if (result.results) {
+                result.results.forEach(r => {
+                    if (r.status === 'success') {
+                        this.emit('record:created', { collection: collectionName, id: r.id, data: r.record });
+                    }
+                });
+            }
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'batchSet', collection: collectionName, error });
-            throw this._handleError(error, `Failed to batch set in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'batchSet', { collection: collectionName });
+            this.emit('operation:error', { type: 'batchSet', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'batchSet',
+                collection: collectionName
+            });
         }
     }
 
-    async batchGet(collectionName, keys, concurrency = 5) {
+    async batchGet(collectionName, ids) {
         try {
             this.emit('operation:start', { type: 'batchGet', collection: collectionName });
-            const result = await this._request('POST', `/api/collections/${collectionName}/batch-get`, { keys });
-            this.emit('operation:success', { type: 'batchGet', collection: collectionName, result });
-            return result;
+            const result = await this._request('POST', `/api/collections/${collectionName}/batch-get`, { ids });
+            const response = this._transformResponse(result, 'batchGet', { collection: collectionName });
+            this.emit('operation:success', { type: 'batchGet', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'batchGet', collection: collectionName, error });
-            throw this._handleError(error, `Failed to batch get from ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'batchGet', { collection: collectionName });
+            this.emit('operation:error', { type: 'batchGet', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'batchGet',
+                collection: collectionName
+            });
         }
     }
 
-    async batchDelete(collectionName, keys, concurrency = 5) {
+    async batchDelete(collectionName, ids) {
         try {
             this.emit('operation:start', { type: 'batchDelete', collection: collectionName });
-            const result = await this._request('POST', `/api/collections/${collectionName}/batch-delete`, { keys });
-            this.emit('operation:success', { type: 'batchDelete', collection: collectionName, result });
-            result.results.forEach(r => {
-                if (r.status === 'success') {
-                    this.emit('record:deleted', { collection: collectionName, key: r.key });
-                }
-            });
-            return result;
+            const result = await this._request('POST', `/api/collections/${collectionName}/batch-delete`, { ids });
+            const response = this._transformResponse(result, 'batchDelete', { collection: collectionName });
+            this.emit('operation:success', { type: 'batchDelete', collection: collectionName, result: response });
+            if (result.results) {
+                result.results.forEach(r => {
+                    if (r.status === 'success') {
+                        this.emit('record:deleted', { collection: collectionName, key: r.id });
+                    }
+                });
+            }
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'batchDelete', collection: collectionName, error });
-            throw this._handleError(error, `Failed to batch delete from ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'batchDelete', { collection: collectionName });
+            this.emit('operation:error', { type: 'batchDelete', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'batchDelete',
+                collection: collectionName
+            });
         }
     }
 
-    async batchUpdate(collectionName, updates, concurrency = 5) {
+    async batchUpdate(collectionName, updates) {
         try {
             this.emit('operation:start', { type: 'batchUpdate', collection: collectionName });
             const result = await this._request('POST', `/api/collections/${collectionName}/batch-update`, { updates });
-            this.emit('operation:success', { type: 'batchUpdate', collection: collectionName, result });
-            result.results.forEach(r => {
-                if (r.status === 'success') {
-                    this.emit('record:updated', { collection: collectionName, id: r.id, data: r.record });
-                }
-            });
-            return result;
+            const response = this._transformResponse(result, 'batchUpdate', { collection: collectionName });
+            this.emit('operation:success', { type: 'batchUpdate', collection: collectionName, result: response });
+            if (result.results) {
+                result.results.forEach(r => {
+                    if (r.status === 'success') {
+                        this.emit('record:updated', { collection: collectionName, id: r.id, data: r.record });
+                    }
+                });
+            }
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'batchUpdate', collection: collectionName, error });
-            throw this._handleError(error, `Failed to batch update in ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'batchUpdate', { collection: collectionName });
+            this.emit('operation:error', { type: 'batchUpdate', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'batchUpdate',
+                collection: collectionName
+            });
         }
     }
 
     async keys(collectionName, options = {}) {
         try {
             this.emit('operation:start', { type: 'keys', collection: collectionName });
-            const response = await this._request('GET', `/api/collections/${collectionName}/keys`);
-            this.emit('operation:success', { type: 'keys', collection: collectionName, result: response.keys });
-            return response.keys;
+            const result = await this._request('GET', `/api/collections/${collectionName}/keys`);
+            const response = this._transformResponse(result.keys, 'keys', { collection: collectionName });
+            this.emit('operation:success', { type: 'keys', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'keys', collection: collectionName, error });
-            throw this._handleError(error, `Failed to get keys from ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'keys', { collection: collectionName });
+            this.emit('operation:error', { type: 'keys', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'keys',
+                collection: collectionName
+            });
         }
     }
 
     async values(collectionName, options = {}) {
-        try {
-            this.emit('operation:start', { type: 'values', collection: collectionName });
-            const queryParams = this._buildQueryParams(options);
-            const url = `/api/collections/${collectionName}${queryParams}`;
-            const response = await this._request('GET', url);
-            const transformed = this._transformResponse(response, { ...options, collectionName, returnType: 'array' });
-            this.emit('operation:success', { type: 'values', collection: collectionName, result: transformed });
-            return transformed;
-        } catch (error) {
-            this.emit('operation:error', { type: 'values', collection: collectionName, error });
-            throw this._handleError(error, `Failed to get values from ${collectionName}`);
-        }
+        return this.get(collectionName, null, options);
     }
 
     async entries(collectionName, options = {}) {
         try {
             this.emit('operation:start', { type: 'entries', collection: collectionName });
-            const response = await this._request('GET', `/api/collections/${collectionName}/entries`);
-            this.emit('operation:success', { type: 'entries', collection: collectionName, result: response.entries });
-            return response.entries;
+            const result = await this._request('GET', `/api/collections/${collectionName}/entries`);
+            const response = this._transformResponse(result.entries, 'entries', { collection: collectionName });
+            this.emit('operation:success', { type: 'entries', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'entries', collection: collectionName, error });
-            throw this._handleError(error, `Failed to get entries from ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'entries', { collection: collectionName });
+            this.emit('operation:error', { type: 'entries', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'entries',
+                collection: collectionName
+            });
         }
     }
 
     async size(collectionName) {
         try {
             this.emit('operation:start', { type: 'size', collection: collectionName });
-            const response = await this._request('GET', `/api/collections/${collectionName}/size`);
-            this.emit('operation:success', { type: 'size', collection: collectionName, result: response.size });
-            return response.size;
+            const result = await this._request('GET', `/api/collections/${collectionName}/size`);
+            const response = this._transformResponse(result.size, 'size', { collection: collectionName });
+            this.emit('operation:success', { type: 'size', collection: collectionName, result: response });
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'size', collection: collectionName, error });
-            throw this._handleError(error, `Failed to get size of ${collectionName}`);
+            const errorResponse = this._createErrorResponse(error, 'size', { collection: collectionName });
+            this.emit('operation:error', { type: 'size', collection: collectionName, error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'size',
+                collection: collectionName
+            });
         }
     }
 
     async health() {
         try {
             const result = await this._request('GET', '/api/health');
-            this.emit('health:check', { status: 'healthy', result });
-            return result;
+            const response = this._transformResponse(result, 'health');
+            this.emit('health:check', { status: 'healthy', result: response });
+            return response;
         } catch (error) {
-            this.emit('health:check', { status: 'unhealthy', error });
-            throw error;
+            const errorResponse = this._createErrorResponse(error, 'health');
+            this.emit('health:check', { status: 'unhealthy', error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'health'
+            });
         }
     }
 
@@ -505,16 +758,22 @@ class liekoDB extends EventEmitter {
             const start = Date.now();
             await this._request('GET', '/api/ping');
             const latency = Date.now() - start;
+            const response = this._transformResponse(latency, 'ping');
             this.emit('operation:success', { type: 'ping', latency });
-            return latency;
+            return response;
         } catch (error) {
-            this.emit('operation:error', { type: 'ping', error });
-            throw this._handleError(error, 'Failed to ping server');
+            const errorResponse = this._createErrorResponse(error, 'ping');
+            this.emit('operation:error', { type: 'ping', error: errorResponse });
+            throw new DatabaseError(errorResponse.error.message, {
+                code: errorResponse.error.code,
+                status: errorResponse.error.status,
+                operation: 'ping'
+            });
         }
     }
 
     getConnectionInfo() {
-        return {
+        const info = {
             URI: this.databaseUrl,
             token: this.token,
             projectId: this.projectId,
@@ -524,6 +783,7 @@ class liekoDB extends EventEmitter {
             retryAttempts: this.retryAttempts,
             retryDelay: this.retryDelay
         };
+        return this._transformResponse(info, 'connectionInfo');
     }
 
     _buildQueryParams(options) {
@@ -531,8 +791,13 @@ class liekoDB extends EventEmitter {
         if (options.limit !== undefined) params.set('limit', options.limit);
         if (options.offset) params.set('offset', options.offset);
         if (options.sort) params.set('sort', options.sort);
-        if (options.filter) params.set('filter', JSON.stringify(options.filter));
-        return params.toString() ? '?' + params.toString() : '';
+        if (options.filter && !options.filter.$search) {
+            params.set('filter', JSON.stringify(options.filter));
+        }
+        if (options.fields) params.set('fields', options.fields.join(','));
+        const queryString = params.toString() ? '?' + params.toString() : '';
+        this._log('Query Params:', queryString);
+        return queryString;
     }
 
     _formatSize(bytes) {
@@ -608,7 +873,17 @@ class liekoDB extends EventEmitter {
             this.emit('request:completed', requestLog);
 
             if (!response.ok) {
-                const error = new Error(responseData.error || `HTTP ${response.status}: ${response.statusText}`);
+                let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    if (responseData && typeof responseData === 'object') {
+                        if (responseData.errors) {
+                            errorMsg = responseData.errors.map(e => `${e.id || 'unknown'}: ${e.error}`).join('; ');
+                        } else if (responseData.error) {
+                            errorMsg = responseData.error;
+                        }
+                    }
+                } catch (_) {}
+                const error = new Error(errorMsg);
                 error.status = response.status;
                 error.response = responseData;
                 throw error;
@@ -639,12 +914,6 @@ class liekoDB extends EventEmitter {
             );
             this.emit('request:failed', errorLog);
 
-            if (error.status === 401) {
-                throw new Error('Invalid project token');
-            }
-            if (error.status === 403) {
-                throw new Error(`Insufficient permissions for ${method} operation on ${endpoint}`);
-            }
             if (this._shouldRetry(error) && attempt <= this.retryAttempts) {
                 this._log(`Request failed, retrying in ${this.retryDelay * attempt}ms... (attempt ${attempt}/${this.retryAttempts})`);
                 await this._delay(this.retryDelay * attempt);
@@ -677,8 +946,36 @@ class liekoDB extends EventEmitter {
     }
 }
 
+class DatabaseError extends Error {
+    constructor(message, details = {}) {
+        super(message);
+        this.name = 'DatabaseError';
+        this.code = details.code;
+        this.status = details.status;
+        this.operation = details.operation;
+        this.collection = details.collection;
+        this.key = details.key;
+        this.timestamp = new Date().toISOString();
+    }
+
+    toJSON() {
+        return {
+            name: this.name,
+            message: this.message,
+            code: this.code,
+            status: this.status,
+            operation: this.operation,
+            collection: this.collection,
+            key: this.key,
+            timestamp: this.timestamp
+        };
+    }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = liekoDB;
+    module.exports.DatabaseError = DatabaseError;
 } else {
     window.liekoDB = liekoDB;
+    window.DatabaseError = DatabaseError;
 }
